@@ -1,0 +1,14 @@
+<Window x:Class="SidebarLauncher.EdgeDetector"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        MouseEnter="OnMouseEnter">
+    <!-- Nearly invisible 2px strip for edge hover detection.
+         Alpha=1 (#01) so WPF still registers mouse events. -->
+    <Border Background="#01000000"/>
+</Window>
