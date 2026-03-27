@@ -19,6 +19,10 @@ public class ShortcutItem
     [JsonPropertyName("group")]
     public string? Group { get; set; }
 
+    [JsonPropertyName("newTab")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool NewTab { get; set; }
+
     [JsonPropertyName("slot")]
     public int Slot { get; set; } = -1;
 }
@@ -30,5 +34,6 @@ public enum ShortcutType
     Folder,
     Url,
     Script,
+    Terminal,
     Separator
 }

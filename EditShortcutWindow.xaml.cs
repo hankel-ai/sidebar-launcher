@@ -20,6 +20,7 @@ public partial class EditShortcutWindow : Window
             .Where(t => t != ShortcutType.Separator)
             .ToList();
         TypeCombo.SelectedItem = existing?.Type ?? ShortcutType.Application;
+        TypeCombo.SelectionChanged += (_, _) => UpdatePathLabel();
 
         if (existing != null)
         {
@@ -28,16 +29,42 @@ public partial class EditShortcutWindow : Window
             NameBox.Text = existing.Name;
             PathBox.Text = existing.Path;
             IconPathBox.Text = existing.IconPath ?? "(default)";
+            NewTabCheck.IsChecked = existing.NewTab;
         }
         else
         {
             IconPathBox.Text = "(default)";
         }
+
+        UpdatePathLabel();
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         DragMove();
+    }
+
+    private void UpdatePathLabel()
+    {
+        var type = (ShortcutType)(TypeCombo.SelectedItem ?? ShortcutType.Application);
+        if (type == ShortcutType.Terminal)
+        {
+            PathLabel.Text = "Command";
+            BrowseButton.Visibility = Visibility.Collapsed;
+            NewTabCheck.Visibility = Visibility.Visible;
+        }
+        else if (type == ShortcutType.Url)
+        {
+            PathLabel.Text = "URL";
+            BrowseButton.Visibility = Visibility.Collapsed;
+            NewTabCheck.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            PathLabel.Text = "Path";
+            BrowseButton.Visibility = Visibility.Visible;
+            NewTabCheck.Visibility = Visibility.Collapsed;
+        }
     }
 
     private string? GetTargetDirectory()
@@ -136,7 +163,8 @@ public partial class EditShortcutWindow : Window
                 : NameBox.Text,
             Path = PathBox.Text,
             Type = type,
-            IconPath = iconPath
+            IconPath = iconPath,
+            NewTab = type == ShortcutType.Terminal && (NewTabCheck.IsChecked == true)
         };
 
         DialogResult = true;

@@ -35,6 +35,29 @@ public static class ShellLauncher
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{item.Path}\""));
                     break;
 
+                case ShortcutType.Terminal:
+                    if (item.NewTab)
+                    {
+                        // Open as a new tab in an existing Windows Terminal window
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "wt.exe",
+                            Arguments = $"-w 0 nt cmd /k {item.Path}",
+                            UseShellExecute = true
+                        });
+                    }
+                    else
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "cmd.exe",
+                            Arguments = $"/k {item.Path}",
+                            WorkingDirectory = workDir,
+                            UseShellExecute = true
+                        });
+                    }
+                    break;
+
                 default:
                     Process.Start(new ProcessStartInfo(item.Path)
                     {

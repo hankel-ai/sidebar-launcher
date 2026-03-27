@@ -123,6 +123,7 @@ public class IconExtractor
                     ShortcutType.Folder => GetFolderIcon(),
                     ShortcutType.Url => GetShellIcon(".html"),
                     ShortcutType.Script => GetShellIcon(".bat"),
+                    ShortcutType.Terminal => GetTerminalIcon(),
                     _ => GetFileIcon(item.Path)
                 };
             }
@@ -324,6 +325,22 @@ public class IconExtractor
     /// <summary>
     /// Gets the icon for a UWP/PWA app from its package manifest images.
     /// </summary>
+    private static ImageSource? GetTerminalIcon()
+    {
+        var cmdPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
+        if (File.Exists(cmdPath))
+        {
+            try
+            {
+                using var ico = Icon.ExtractAssociatedIcon(cmdPath);
+                if (ico != null) return IconToImageSource(ico);
+            }
+            catch { }
+        }
+        return GetShellIcon(".exe");
+    }
+
     /// <summary>
     /// Gets the icon for any shell path (shell:AppsFolder\{AppID}, shell:MyComputerFolder, etc.)
     /// by parsing it to a PIDL and using SHGetFileInfo.
