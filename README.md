@@ -5,14 +5,17 @@ A lightweight, auto-hiding launcher bar for Windows 11. Pin your favorite apps, 
 ## Features
 
 - **Auto-hide**: Bar slides in when you hover the screen edge, slides out when you leave
-- **Pinned mode**: Optionally pin the bar to always stay visible (reserves screen space via AppBar API)
+- **Pinned mode**: Double-click the bar or use the context menu to pin it (reserves screen space via AppBar API)
 - **Configurable edge**: Left or right side of any monitor
 - **Dark theme**: Semi-transparent dark aesthetic with smooth slide animations
 - **Shortcut types**: Applications (.exe, .lnk), folders, URLs, scripts (.ps1, .bat, .cmd)
+- **Import shortcuts**: Import from Taskbar and Start Menu with clean icons (no overlay arrows)
 - **Auto icon extraction**: Icons pulled from executables, shortcuts, and shell associations
+- **Drag and drop**: Reorder shortcuts by dragging, or drop files/folders onto the bar to add them
 - **Right-click management**: Add, edit, remove, and reorder shortcuts from the bar
-- **System tray**: Access from the notification area
-- **Lightweight**: ~61MB single-file EXE (self-contained, no runtime needed)
+- **Lock icons**: Prevent accidental reordering
+- **Launch on startup**: Optional auto-start with Windows
+- **Lightweight**: Single-file EXE, no runtime needed
 
 ## Usage
 
@@ -20,13 +23,19 @@ A lightweight, auto-hiding launcher bar for Windows 11. Pin your favorite apps, 
 2. Hover the left edge of your screen to reveal the sidebar
 3. Click the **+** button to add shortcuts
 4. Right-click any shortcut for options (Edit, Remove, Move Up/Down)
-5. Right-click for Edge switching, Pin/Unpin, and Exit
+5. Right-click empty area for Import, Pin, Lock, Edge, Startup, and Exit options
+6. Double-click the bar to toggle pinned mode
+7. Drag and drop files or folders onto the bar to add them
 
 ## Build
 
 Requires .NET 8.0 SDK.
 
 ```bash
+# Build, copy, and launch
+buildandcopy.cmd
+
+# Or manually
 dotnet publish -c Release
 # Output: bin\Release\net8.0-windows\win-x64\publish\SidebarLauncher.exe
 ```

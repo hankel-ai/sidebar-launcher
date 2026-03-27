@@ -25,7 +25,8 @@
             CornerRadius="0,8,8,0"
             BorderThickness="0,1,1,1"
             BorderBrush="#40FFFFFF"
-            MouseRightButtonUp="OnBarRightClick">
+            MouseRightButtonUp="OnBarRightClick"
+            PreviewMouseLeftButtonDown="OnBarDoubleClick">
         <Border.Background>
             <SolidColorBrush Color="#181818" Opacity="0.92"/>
         </Border.Background>

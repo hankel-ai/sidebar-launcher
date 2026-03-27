@@ -573,6 +573,15 @@ public partial class SidebarWindow : Window
 
     #region Context Menus
 
+    private void OnBarDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            _edgeDetector.TogglePinned();
+            e.Handled = true;
+        }
+    }
+
     private void OnBarRightClick(object sender, MouseButtonEventArgs e)
     {
         if (e.Handled || _isDragging) return;
@@ -692,6 +701,19 @@ public partial class SidebarWindow : Window
         };
         pinItem.Click += (_, _) => { _edgeDetector.TogglePinned(); ResetInteractionState(); };
         menu.Items.Add(pinItem);
+
+        var startupItem = new MenuItem
+        {
+            Header = "Launch on Startup",
+            IsCheckable = true,
+            IsChecked = StartupService.IsEnabled()
+        };
+        startupItem.Click += (_, _) =>
+        {
+            StartupService.SetEnabled(!StartupService.IsEnabled());
+            ResetInteractionState();
+        };
+        menu.Items.Add(startupItem);
 
         menu.Items.Add(new Separator());
 
