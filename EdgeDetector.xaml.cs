@@ -103,9 +103,14 @@ public partial class EdgeDetector : Window
         _configService.Save(_config);
 
         if (_config.Settings.Pinned)
+        {
             ShowSidebar();
+        }
         else
+        {
+            _sidebar?.UnregisterAppBar();
             _sidebar?.SlideOut();
+        }
     }
 
     protected override void OnClosed(EventArgs e)

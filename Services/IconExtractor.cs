@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -19,12 +21,23 @@ public class IconExtractor
     private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes,
         ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
 
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint ExtractIconEx(string lpszFile, int nIconIndex,
+        IntPtr[] phiconLarge, IntPtr[] phiconSmall, uint nIcons);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SHGetFileInfo(IntPtr pidl, uint dwFileAttributes,
+        ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
+
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    [DllImport("ole32.dll")]
+    private static extern void CoTaskMemFree(IntPtr ptr);
+
     private const uint SHGFI_ICON = 0x000000100;
-    private const uint SHGFI_SMALLICON = 0x000000001;
     private const uint SHGFI_LARGEICON = 0x000000000;
+    private const uint SHGFI_PIDL = 0x000000008;
     private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
     private const uint FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
     private const uint FILE_ATTRIBUTE_NORMAL = 0x00000080;
@@ -41,6 +54,38 @@ public class IconExtractor
         public string szTypeName;
     }
 
+    // IShellLink COM interface for resolving .lnk metadata
+    [ComImport]
+    [Guid("000214F9-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch,
+            IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cch);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cch);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out ushort pwHotkey);
+        void SetHotkey(ushort wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath,
+            int cch, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
+    [ComImport]
+    [Guid("00021401-0000-0000-C000-000000000046")]
+    private class ShellLink { }
+
     public void InvalidateCache(string path)
     {
         _cache.Remove(path);
@@ -48,7 +93,6 @@ public class IconExtractor
 
     public ImageSource? GetIcon(ShortcutItem item)
     {
-        // Use custom icon path if specified
         var keyPath = item.IconPath ?? item.Path;
         if (_cache.TryGetValue(keyPath, out var cached))
             return cached;
@@ -78,6 +122,145 @@ public class IconExtractor
         return result;
     }
 
+    /// <summary>
+    /// Gets the icon for a file. For .lnk files, reads the shortcut's icon location
+    /// metadata to get the correct icon without the overlay arrow.
+    /// </summary>
+    public static ImageSource? GetFileIcon(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                var ext = Path.GetExtension(filePath);
+                return !string.IsNullOrEmpty(ext) ? GetShellIcon(ext) : null;
+            }
+
+            // For .lnk files, extract the icon the shortcut specifies
+            if (Path.GetExtension(filePath).Equals(".lnk", StringComparison.OrdinalIgnoreCase))
+            {
+                var icon = GetLnkIcon(filePath);
+                if (icon != null) return icon;
+            }
+
+            // For regular files, use ExtractAssociatedIcon
+            using var ico = Icon.ExtractAssociatedIcon(filePath);
+            if (ico != null)
+                return IconToImageSource(ico);
+        }
+        catch { }
+
+        var fallbackExt = Path.GetExtension(filePath);
+        return !string.IsNullOrEmpty(fallbackExt) ? GetShellIcon(fallbackExt) : null;
+    }
+
+    /// <summary>
+    /// Reads a .lnk file's icon metadata and extracts the exact icon it specifies.
+    /// Priority: 1) GetIconLocation from .lnk, 2) target exe icon, 3) null
+    /// </summary>
+    private static ImageSource? GetLnkIcon(string lnkPath)
+    {
+        try
+        {
+            var link = (IShellLinkW)new ShellLink();
+            ((IPersistFile)link).Load(lnkPath, 0);
+
+            // Try the shortcut's explicit icon location first
+            var iconPathBuf = new StringBuilder(260);
+            link.GetIconLocation(iconPathBuf, iconPathBuf.Capacity, out int iconIndex);
+            var iconPath = iconPathBuf.ToString();
+
+            if (!string.IsNullOrWhiteSpace(iconPath))
+            {
+                // Expand environment variables like %SystemRoot%
+                iconPath = Environment.ExpandEnvironmentVariables(iconPath);
+
+                if (File.Exists(iconPath))
+                {
+                    var result = ExtractIconByIndex(iconPath, iconIndex);
+                    if (result != null) return result;
+                }
+            }
+
+            // Fall back to the target executable
+            var targetBuf = new StringBuilder(260);
+            link.GetPath(targetBuf, targetBuf.Capacity, IntPtr.Zero, 0);
+            var target = targetBuf.ToString();
+
+            if (!string.IsNullOrWhiteSpace(target) && File.Exists(target))
+            {
+                using var ico = Icon.ExtractAssociatedIcon(target);
+                if (ico != null)
+                    return IconToImageSource(ico);
+            }
+        }
+        catch { }
+
+        // Final fallback: get the PIDL from the .lnk and use SHGetFileInfo with
+        // SHGFI_PIDL to get the icon without the shortcut overlay arrow.
+        // Handles shell objects like "This PC" that have no file path.
+        try
+        {
+            var link = (IShellLinkW)new ShellLink();
+            ((IPersistFile)link).Load(lnkPath, 0);
+            link.GetIDList(out IntPtr pidl);
+            if (pidl != IntPtr.Zero)
+            {
+                try
+                {
+                    var shinfo = new SHFILEINFO();
+                    var result = SHGetFileInfo(pidl, 0, ref shinfo,
+                        (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_LARGEICON | SHGFI_PIDL);
+                    if (result != IntPtr.Zero && shinfo.hIcon != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            using var icon = Icon.FromHandle(shinfo.hIcon);
+                            return IconToImageSource(icon);
+                        }
+                        finally
+                        {
+                            DestroyIcon(shinfo.hIcon);
+                        }
+                    }
+                }
+                finally
+                {
+                    CoTaskMemFree(pidl);
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts a specific icon by index from an exe, dll, or ico file.
+    /// </summary>
+    private static ImageSource? ExtractIconByIndex(string filePath, int index)
+    {
+        var largeIcons = new IntPtr[1];
+        var smallIcons = new IntPtr[1];
+
+        try
+        {
+            uint count = ExtractIconEx(filePath, index, largeIcons, smallIcons, 1);
+            if (count > 0 && largeIcons[0] != IntPtr.Zero)
+            {
+                using var icon = Icon.FromHandle(largeIcons[0]);
+                return IconToImageSource(icon);
+            }
+        }
+        finally
+        {
+            if (largeIcons[0] != IntPtr.Zero) DestroyIcon(largeIcons[0]);
+            if (smallIcons[0] != IntPtr.Zero) DestroyIcon(smallIcons[0]);
+        }
+
+        return null;
+    }
+
     private static ImageSource? LoadImageFile(string path)
     {
         var bitmap = new BitmapImage();
@@ -87,28 +270,6 @@ public class IconExtractor
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
-    }
-
-    private static ImageSource? GetFileIcon(string filePath)
-    {
-        // Try ExtractAssociatedIcon first (works for .exe and .lnk)
-        try
-        {
-            if (File.Exists(filePath))
-            {
-                using var icon = Icon.ExtractAssociatedIcon(filePath);
-                if (icon != null)
-                    return IconToImageSource(icon);
-            }
-        }
-        catch { }
-
-        // Fallback: get icon by extension via shell
-        var ext = Path.GetExtension(filePath);
-        if (!string.IsNullOrEmpty(ext))
-            return GetShellIcon(ext);
-
-        return null;
     }
 
     private static ImageSource? GetFolderIcon()

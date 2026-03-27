@@ -1,0 +1,85 @@
+<Window x:Class="SidebarLauncher.ImportShortcutsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Import Shortcuts"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        Width="380" Height="450"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Border Background="#E6181818" CornerRadius="8"
+            BorderBrush="#40FFFFFF" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8" Opacity="0.4" ShadowDepth="2" Color="Black"/>
+        </Border.Effect>
+
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" x:Name="TitleText" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#CCCCCC"/>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal">
+                <TextBlock Text="Select shortcuts to import" Foreground="#999999" FontSize="12"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text=" | " Foreground="#555555" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="All" Foreground="#5599DD" FontSize="12" Cursor="Hand"
+                           MouseLeftButtonUp="OnSelectAll" VerticalAlignment="Center"/>
+                <TextBlock Text=" | " Foreground="#555555" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="None" Foreground="#5599DD" FontSize="12" Cursor="Hand"
+                           MouseLeftButtonUp="OnSelectNone" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <ListBox Grid.Row="4" x:Name="ShortcutList"
+                     Background="#222222" BorderBrush="#444444" BorderThickness="1"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                            <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center"
+                                      Margin="0,0,8,0"/>
+                            <Image Source="{Binding Icon}" Width="24" Height="24"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontSize="13"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="4,2"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2A2A2A"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+
+            <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Width="80" Padding="6"
+                        Background="#2A2A2A" Foreground="White" BorderBrush="#555555"
+                        Click="OnCancelClick" Margin="0,0,8,0"/>
+                <Button Content="Import" Width="80" Padding="6"
+                        Background="#2196F3" Foreground="White" BorderBrush="#1976D2"
+                        Click="OnImportClick"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

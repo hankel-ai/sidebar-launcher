@@ -630,6 +630,33 @@ public partial class SidebarWindow : Window
         };
         menu.Items.Add(addItem);
 
+        var importMenu = new MenuItem { Header = "Import From" };
+        var importTaskbar = new MenuItem { Header = "Taskbar..." };
+        importTaskbar.Click += (_, _) =>
+        {
+            var taskbarPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar");
+            ImportFrom("Import from Taskbar", taskbarPath);
+            ResetInteractionState();
+        };
+        importMenu.Items.Add(importTaskbar);
+
+        var importStartMenu = new MenuItem { Header = "Start Menu..." };
+        importStartMenu.Click += (_, _) =>
+        {
+            var userStart = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Microsoft\Windows\Start Menu\Programs");
+            var allStart = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                @"Microsoft\Windows\Start Menu\Programs");
+            ImportFrom("Import from Start Menu", new string[] { userStart, allStart });
+            ResetInteractionState();
+        };
+        importMenu.Items.Add(importStartMenu);
+        menu.Items.Add(importMenu);
+
         menu.Items.Add(new Separator());
 
         var lockItem = new MenuItem
@@ -659,7 +686,9 @@ public partial class SidebarWindow : Window
 
         var pinItem = new MenuItem
         {
-            Header = _config.Settings.Pinned ? "Unpin (Auto-hide)" : "Pin (Always Visible)"
+            Header = "Pin",
+            IsCheckable = true,
+            IsChecked = _config.Settings.Pinned
         };
         pinItem.Click += (_, _) => { _edgeDetector.TogglePinned(); ResetInteractionState(); };
         menu.Items.Add(pinItem);
@@ -689,6 +718,49 @@ public partial class SidebarWindow : Window
             _configService.Save(_config);
             RebuildGrid();
         }
+    }
+
+    private void ImportFrom(string title, string searchPath)
+    {
+        var existing = _config.Shortcuts.Select(s => s.Path);
+        var dialog = new ImportShortcutsWindow(title, searchPath, existing) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
+        {
+            foreach (var item in dialog.SelectedShortcuts)
+            {
+                AssignNextFreeSlot(item);
+                _config.Shortcuts.Add(item);
+            }
+            _configService.Save(_config);
+            RebuildGrid();
+        }
+    }
+
+    private void ImportFrom(string title, string[] searchPaths)
+    {
+        var existing = _config.Shortcuts.Select(s => s.Path);
+        var dialog = new ImportShortcutsWindow(title, searchPaths, existing) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
+        {
+            foreach (var item in dialog.SelectedShortcuts)
+            {
+                AssignNextFreeSlot(item);
+                _config.Shortcuts.Add(item);
+            }
+            _configService.Save(_config);
+            RebuildGrid();
+        }
+    }
+
+    private void AssignNextFreeSlot(ShortcutItem item)
+    {
+        var usedSlots = new HashSet<int>(_config.Shortcuts
+            .Where(s => s.Slot >= 0 && s.Type != ShortcutType.Separator)
+            .Select(s => s.Slot));
+        int slot = 0;
+        while (usedSlots.Contains(slot)) slot++;
+        item.Slot = slot;
+        usedSlots.Add(slot);
     }
 
     private void EditShortcut(ShortcutItem item)
