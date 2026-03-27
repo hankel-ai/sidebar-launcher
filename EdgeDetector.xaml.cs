@@ -68,6 +68,12 @@ public partial class EdgeDetector : Window
         ShowSidebar();
     }
 
+    private void OnDragEnter(object sender, System.Windows.DragEventArgs e)
+    {
+        // Show sidebar when user drags files to the edge
+        ShowSidebar();
+    }
+
     public void ShowSidebar()
     {
         if (_sidebar == null || !_sidebar.IsLoaded)

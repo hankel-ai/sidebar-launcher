@@ -9,7 +9,12 @@
         ShowActivated="False"
         Topmost="True"
         MouseLeave="OnMouseLeave"
-        MouseEnter="OnMouseEnter">
+        MouseEnter="OnMouseEnter"
+        AllowDrop="True"
+        DragEnter="OnDragEnter"
+        DragOver="OnDragOver"
+        Drop="OnDrop"
+        DragLeave="OnDragLeave">
     <Window.RenderTransform>
         <TranslateTransform x:Name="SlideTransform"/>
     </Window.RenderTransform>
@@ -17,7 +22,8 @@
     <Border x:Name="OuterBorder"
             CornerRadius="0,8,8,0"
             BorderThickness="0,1,1,1"
-            BorderBrush="#40FFFFFF">
+            BorderBrush="#40FFFFFF"
+            MouseRightButtonUp="OnBarRightClick">
         <Border.Background>
             <SolidColorBrush Color="#181818" Opacity="0.92"/>
         </Border.Background>

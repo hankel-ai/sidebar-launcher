@@ -7,7 +7,9 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
-        MouseEnter="OnMouseEnter">
+        MouseEnter="OnMouseEnter"
+        AllowDrop="True"
+        DragEnter="OnDragEnter">
     <!-- Nearly invisible 2px strip for edge hover detection.
          Alpha=1 (#01) so WPF still registers mouse events. -->
     <Border Background="#01000000"/>

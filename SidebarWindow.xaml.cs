@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -164,7 +165,7 @@ public partial class SidebarWindow : Window
 
     public void SlideOut()
     {
-        if (!_isVisible || _isAnimating || _config.Settings.Pinned) return;
+        if (!_isVisible || _isAnimating || _config.Settings.Pinned || _contextMenuOpen) return;
 
         _isAnimating = true;
         double target = _config.Settings.Edge == ScreenEdge.Left
@@ -187,15 +188,40 @@ public partial class SidebarWindow : Window
         SlideTransform.BeginAnimation(TranslateTransform.XProperty, animation);
     }
 
+    private bool _contextMenuOpen;
+
     private void OnMouseLeave(object sender, MouseEventArgs e)
     {
-        if (!_config.Settings.Pinned)
+        if (!_config.Settings.Pinned && !_contextMenuOpen)
             _hideTimer.Start();
     }
 
     private void OnMouseEnter(object sender, MouseEventArgs e)
     {
         _hideTimer.Stop();
+    }
+
+    private void TrackContextMenu(ContextMenu menu)
+    {
+        _contextMenuOpen = true;
+        _hideTimer.Stop();
+        menu.Closed += (_, _) =>
+        {
+            // Delay reset so Click handlers run first (they'll call ResetInteractionState)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // Only reset if no Click handler already did it
+                if (_contextMenuOpen)
+                    ResetInteractionState();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        };
+    }
+
+    private void ResetInteractionState()
+    {
+        _contextMenuOpen = false;
+        if (!IsMouseOver && !_config.Settings.Pinned)
+            _hideTimer.Start();
     }
 
     private void OnScrollWheel(object sender, MouseWheelEventArgs e)
@@ -215,12 +241,14 @@ public partial class SidebarWindow : Window
 
     private void OnShortcutRightClick(object sender, MouseButtonEventArgs e)
     {
+        _contextMenuOpen = true;
+        _hideTimer.Stop();
         if (sender is FrameworkElement fe && fe.DataContext is ShortcutViewModel vm)
         {
             var menu = new ContextMenu();
 
             var editItem = new MenuItem { Header = "Edit" };
-            editItem.Click += (_, _) => EditShortcut(vm.ShortcutItem);
+            editItem.Click += (_, _) => { EditShortcut(vm.ShortcutItem); ResetInteractionState(); };
             menu.Items.Add(editItem);
 
             var removeItem = new MenuItem { Header = "Remove" };
@@ -229,6 +257,7 @@ public partial class SidebarWindow : Window
                 _config.Shortcuts.Remove(vm.ShortcutItem);
                 _configService.Save(_config);
                 RefreshShortcuts();
+                ResetInteractionState();
             };
             menu.Items.Add(removeItem);
 
@@ -244,6 +273,7 @@ public partial class SidebarWindow : Window
                     _config.Shortcuts.Insert(idx - 1, vm.ShortcutItem);
                     _configService.Save(_config);
                     RefreshShortcuts();
+                    ResetInteractionState();
                 };
                 menu.Items.Add(moveUp);
             }
@@ -256,6 +286,7 @@ public partial class SidebarWindow : Window
                     _config.Shortcuts.Insert(idx + 1, vm.ShortcutItem);
                     _configService.Save(_config);
                     RefreshShortcuts();
+                    ResetInteractionState();
                 };
                 menu.Items.Add(moveDown);
             }
@@ -268,7 +299,7 @@ public partial class SidebarWindow : Window
                 Header = "Left",
                 IsChecked = _config.Settings.Edge == ScreenEdge.Left
             };
-            leftItem.Click += (_, _) => _edgeDetector.SwitchEdge(ScreenEdge.Left);
+            leftItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Left); ResetInteractionState(); };
             edgeSubMenu.Items.Add(leftItem);
 
             var rightItem = new MenuItem
@@ -276,7 +307,7 @@ public partial class SidebarWindow : Window
                 Header = "Right",
                 IsChecked = _config.Settings.Edge == ScreenEdge.Right
             };
-            rightItem.Click += (_, _) => _edgeDetector.SwitchEdge(ScreenEdge.Right);
+            rightItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Right); ResetInteractionState(); };
             edgeSubMenu.Items.Add(rightItem);
             menu.Items.Add(edgeSubMenu);
 
@@ -284,7 +315,7 @@ public partial class SidebarWindow : Window
             {
                 Header = _config.Settings.Pinned ? "Unpin (Auto-hide)" : "Pin (Always Visible)"
             };
-            pinItem.Click += (_, _) => _edgeDetector.TogglePinned();
+            pinItem.Click += (_, _) => { _edgeDetector.TogglePinned(); ResetInteractionState(); };
             menu.Items.Add(pinItem);
 
             menu.Items.Add(new Separator());
@@ -297,9 +328,77 @@ public partial class SidebarWindow : Window
             };
             menu.Items.Add(exitItem);
 
+            TrackContextMenu(menu);
             menu.IsOpen = true;
             e.Handled = true;
         }
+    }
+
+    private void OnBarRightClick(object sender, MouseButtonEventArgs e)
+    {
+        // Don't show bar menu if we already handled a shortcut right-click
+        if (e.Handled) return;
+
+        _contextMenuOpen = true;
+        _hideTimer.Stop();
+
+        var menu = new ContextMenu();
+
+        var addItem = new MenuItem { Header = "Add Shortcut..." };
+        addItem.Click += (_, _) =>
+        {
+            var dialog = new EditShortcutWindow();
+            dialog.Owner = this;
+            if (dialog.ShowDialog() == true && dialog.Result != null)
+            {
+                _config.Shortcuts.Add(dialog.Result);
+                _configService.Save(_config);
+                RefreshShortcuts();
+            }
+            ResetInteractionState();
+        };
+        menu.Items.Add(addItem);
+
+        menu.Items.Add(new Separator());
+
+        var edgeSubMenu = new MenuItem { Header = "Edge" };
+        var leftItem = new MenuItem
+        {
+            Header = "Left",
+            IsChecked = _config.Settings.Edge == ScreenEdge.Left
+        };
+        leftItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Left); ResetInteractionState(); };
+        edgeSubMenu.Items.Add(leftItem);
+
+        var rightItem = new MenuItem
+        {
+            Header = "Right",
+            IsChecked = _config.Settings.Edge == ScreenEdge.Right
+        };
+        rightItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Right); ResetInteractionState(); };
+        edgeSubMenu.Items.Add(rightItem);
+        menu.Items.Add(edgeSubMenu);
+
+        var pinItem = new MenuItem
+        {
+            Header = _config.Settings.Pinned ? "Unpin (Auto-hide)" : "Pin (Always Visible)"
+        };
+        pinItem.Click += (_, _) => { _edgeDetector.TogglePinned(); ResetInteractionState(); };
+        menu.Items.Add(pinItem);
+
+        menu.Items.Add(new Separator());
+
+        var exitItem = new MenuItem { Header = "Exit" };
+        exitItem.Click += (_, _) =>
+        {
+            _edgeDetector.Close();
+            Application.Current.Shutdown();
+        };
+        menu.Items.Add(exitItem);
+
+        TrackContextMenu(menu);
+        menu.IsOpen = true;
+        e.Handled = true;
     }
 
     private void OnAddClick(object sender, MouseButtonEventArgs e)
@@ -326,6 +425,92 @@ public partial class SidebarWindow : Window
             _configService.Save(_config);
             RefreshShortcuts();
         }
+    }
+
+    private void OnDragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = DragDropEffects.Copy;
+            OuterBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3)); // Blue highlight
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDragLeave(object sender, DragEventArgs e)
+    {
+        OuterBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+    }
+
+    private void OnDrop(object sender, DragEventArgs e)
+    {
+        OuterBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+
+        var paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+        if (paths == null) return;
+
+        int added = 0;
+        foreach (var path in paths)
+        {
+            // Skip duplicates
+            if (_config.Shortcuts.Any(s => string.Equals(s.Path, path, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            var item = new ShortcutItem
+            {
+                Path = path,
+                Name = Path.GetFileNameWithoutExtension(path),
+                Type = DetectType(path)
+            };
+
+            // For folders, use the folder name
+            if (item.Type == ShortcutType.Folder)
+                item.Name = new DirectoryInfo(path).Name;
+
+            // For .lnk files, use the shortcut name without extension
+            if (Path.GetExtension(path).Equals(".lnk", StringComparison.OrdinalIgnoreCase))
+                item.Name = Path.GetFileNameWithoutExtension(path);
+
+            _config.Shortcuts.Add(item);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            _configService.Save(_config);
+            RefreshShortcuts();
+        }
+    }
+
+    private static ShortcutType DetectType(string path)
+    {
+        if (Directory.Exists(path))
+            return ShortcutType.Folder;
+
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == "http" || uri.Scheme == "https"))
+            return ShortcutType.Url;
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext switch
+        {
+            ".ps1" or ".bat" or ".cmd" => ShortcutType.Script,
+            _ => ShortcutType.Application
+        };
     }
 
     protected override void OnClosed(EventArgs e)
