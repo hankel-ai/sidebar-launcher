@@ -18,6 +18,9 @@ public class ShortcutItem
 
     [JsonPropertyName("group")]
     public string? Group { get; set; }
+
+    [JsonPropertyName("slot")]
+    public int Slot { get; set; } = -1;
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ShortcutType>))]

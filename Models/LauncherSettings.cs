@@ -30,6 +30,9 @@ public class LauncherSettings
 
     [JsonPropertyName("monitorIndex")]
     public int MonitorIndex { get; set; } = 0;
+
+    [JsonPropertyName("locked")]
+    public bool Locked { get; set; } = true;
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ScreenEdge>))]

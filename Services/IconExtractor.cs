@@ -41,6 +41,11 @@ public class IconExtractor
         public string szTypeName;
     }
 
+    public void InvalidateCache(string path)
+    {
+        _cache.Remove(path);
+    }
+
     public ImageSource? GetIcon(ShortcutItem item)
     {
         // Use custom icon path if specified

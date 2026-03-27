@@ -23,9 +23,15 @@ public partial class EditShortcutWindow : Window
 
         if (existing != null)
         {
+            TitleText.Text = "Edit Shortcut";
             Title = "Edit Shortcut";
             NameBox.Text = existing.Name;
             PathBox.Text = existing.Path;
+            IconPathBox.Text = existing.IconPath ?? "(default)";
+        }
+        else
+        {
+            IconPathBox.Text = "(default)";
         }
     }
 
@@ -34,13 +40,29 @@ public partial class EditShortcutWindow : Window
         DragMove();
     }
 
+    private string? GetTargetDirectory()
+    {
+        var path = PathBox.Text;
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        try
+        {
+            if (Directory.Exists(path)) return path;
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) return dir;
+        }
+        catch { }
+        return null;
+    }
+
     private void OnBrowseClick(object sender, RoutedEventArgs e)
     {
         var selectedType = (ShortcutType)(TypeCombo.SelectedItem ?? ShortcutType.Application);
+        var initialDir = GetTargetDirectory();
 
         if (selectedType == ShortcutType.Folder)
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog();
+            if (initialDir != null) dialog.SelectedPath = initialDir;
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 PathBox.Text = dialog.SelectedPath;
@@ -58,6 +80,7 @@ public partial class EditShortcutWindow : Window
                     _ => "Applications (*.exe;*.lnk)|*.exe;*.lnk|All files (*.*)|*.*"
                 }
             };
+            if (initialDir != null) dialog.InitialDirectory = initialDir;
             if (dialog.ShowDialog() == true)
             {
                 PathBox.Text = dialog.FileName;
@@ -65,6 +88,26 @@ public partial class EditShortcutWindow : Window
                     NameBox.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
             }
         }
+    }
+
+    private void OnBrowseIconClick(object sender, RoutedEventArgs e)
+    {
+        var initialDir = GetTargetDirectory();
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Image files (*.ico;*.png;*.jpg;*.bmp)|*.ico;*.png;*.jpg;*.bmp|Executables (*.exe;*.dll)|*.exe;*.dll|All files (*.*)|*.*",
+            Title = "Select Icon"
+        };
+        if (initialDir != null) dialog.InitialDirectory = initialDir;
+        if (dialog.ShowDialog() == true)
+        {
+            IconPathBox.Text = dialog.FileName;
+        }
+    }
+
+    private void OnClearIconClick(object sender, RoutedEventArgs e)
+    {
+        IconPathBox.Text = "(default)";
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
@@ -82,13 +125,18 @@ public partial class EditShortcutWindow : Window
         if (TypeCombo.SelectedItem is ShortcutType.Application)
             type = DetectType(PathBox.Text);
 
+        var iconPath = IconPathBox.Text;
+        if (iconPath == "(default)" || string.IsNullOrWhiteSpace(iconPath))
+            iconPath = null;
+
         Result = new ShortcutItem
         {
             Name = string.IsNullOrWhiteSpace(NameBox.Text)
                 ? Path.GetFileNameWithoutExtension(PathBox.Text)
                 : NameBox.Text,
             Path = PathBox.Text,
-            Type = type
+            Type = type,
+            IconPath = iconPath
         };
 
         DialogResult = true;

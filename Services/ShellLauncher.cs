@@ -12,10 +12,12 @@ public static class ShellLauncher
     {
         try
         {
+            var workDir = GetWorkingDirectory(item.Path);
+
             switch (item.Type)
             {
                 case ShortcutType.Script:
-                    LaunchScript(item.Path);
+                    LaunchScript(item.Path, workDir);
                     break;
 
                 case ShortcutType.Url:
@@ -27,7 +29,11 @@ public static class ShellLauncher
                     break;
 
                 default:
-                    Process.Start(new ProcessStartInfo(item.Path) { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo(item.Path)
+                    {
+                        UseShellExecute = true,
+                        WorkingDirectory = workDir
+                    });
                     break;
             }
         }
@@ -38,7 +44,21 @@ public static class ShellLauncher
         }
     }
 
-    private static void LaunchScript(string path)
+    private static string GetWorkingDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                return path;
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                return dir;
+        }
+        catch { }
+        return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    }
+
+    private static void LaunchScript(string path, string workDir)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
         switch (ext)
@@ -48,17 +68,26 @@ public static class ShellLauncher
                 {
                     FileName = "powershell.exe",
                     Arguments = $"-ExecutionPolicy Bypass -File \"{path}\"",
+                    WorkingDirectory = workDir,
                     UseShellExecute = true
                 });
                 break;
 
             case ".bat":
             case ".cmd":
-                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(path)
+                {
+                    WorkingDirectory = workDir,
+                    UseShellExecute = true
+                });
                 break;
 
             default:
-                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(path)
+                {
+                    WorkingDirectory = workDir,
+                    UseShellExecute = true
+                });
                 break;
         }
     }

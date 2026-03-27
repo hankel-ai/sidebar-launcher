@@ -12,7 +12,6 @@ public partial class EdgeDetector : Window
     private readonly LauncherConfig _config;
     private readonly ConfigService _configService;
     private SidebarWindow? _sidebar;
-    private NotifyIcon? _trayIcon;
 
     public EdgeDetector(LauncherConfig config, ConfigService configService)
     {
@@ -25,7 +24,6 @@ public partial class EdgeDetector : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         PositionAtEdge();
-        SetupTrayIcon();
 
         if (_config.Settings.Pinned)
             ShowSidebar();
@@ -110,33 +108,8 @@ public partial class EdgeDetector : Window
             _sidebar?.SlideOut();
     }
 
-    private void SetupTrayIcon()
-    {
-        _trayIcon = new NotifyIcon
-        {
-            Icon = System.Drawing.SystemIcons.Application,
-            Text = "Sidebar Launcher",
-            Visible = true
-        };
-
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Show Sidebar", null, (_, _) => ShowSidebar());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) =>
-        {
-            _trayIcon.Visible = false;
-            _trayIcon.Dispose();
-            _sidebar?.Close();
-            System.Windows.Application.Current.Shutdown();
-        });
-
-        _trayIcon.ContextMenuStrip = menu;
-        _trayIcon.DoubleClick += (_, _) => ShowSidebar();
-    }
-
     protected override void OnClosed(EventArgs e)
     {
-        _trayIcon?.Dispose();
         base.OnClosed(e);
     }
 }
