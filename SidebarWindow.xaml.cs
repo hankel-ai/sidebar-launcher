@@ -654,16 +654,42 @@ public partial class SidebarWindow : Window
         var importStartMenu = new MenuItem { Header = "Start Menu..." };
         importStartMenu.Click += (_, _) =>
         {
-            var userStart = System.IO.Path.Combine(
+            var userStartRoot = System.IO.Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                @"Microsoft\Windows\Start Menu\Programs");
-            var allStart = System.IO.Path.Combine(
+                @"Microsoft\Windows\Start Menu");
+            var allStartRoot = System.IO.Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                @"Microsoft\Windows\Start Menu\Programs");
-            ImportFrom("Import from Start Menu", new string[] { userStart, allStart });
+                @"Microsoft\Windows\Start Menu");
+            ImportFrom("Import from Start Menu", new string[] { userStartRoot, allStartRoot });
             ResetInteractionState();
         };
         importMenu.Items.Add(importStartMenu);
+
+        var importApps = new MenuItem { Header = "Installed Apps..." };
+        importApps.Click += (_, _) =>
+        {
+            var entries = ImportShortcutsWindow.DiscoverInstalledApps(GetExistingPaths());
+            if (entries.Count == 0)
+            {
+                MessageBox.Show("No additional installed apps found.", "Import",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ResetInteractionState();
+                return;
+            }
+            var dialog = new ImportShortcutsWindow("Import Installed Apps", entries) { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
+            {
+                foreach (var item in dialog.SelectedShortcuts)
+                {
+                    AssignNextFreeSlot(item);
+                    _config.Shortcuts.Add(item);
+                }
+                _configService.Save(_config);
+                RebuildGrid();
+            }
+            ResetInteractionState();
+        };
+        importMenu.Items.Add(importApps);
         menu.Items.Add(importMenu);
 
         menu.Items.Add(new Separator());
@@ -742,9 +768,16 @@ public partial class SidebarWindow : Window
         }
     }
 
+    private IEnumerable<string> GetExistingPaths()
+    {
+        // Return both paths and names so import can deduplicate properly
+        return _config.Shortcuts.Select(s => s.Path)
+            .Concat(_config.Shortcuts.Select(s => s.Name));
+    }
+
     private void ImportFrom(string title, string searchPath)
     {
-        var existing = _config.Shortcuts.Select(s => s.Path);
+        var existing = GetExistingPaths();
         var dialog = new ImportShortcutsWindow(title, searchPath, existing) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
         {
@@ -760,7 +793,7 @@ public partial class SidebarWindow : Window
 
     private void ImportFrom(string title, string[] searchPaths)
     {
-        var existing = _config.Shortcuts.Select(s => s.Path);
+        var existing = GetExistingPaths();
         var dialog = new ImportShortcutsWindow(title, searchPaths, existing) { Owner = this };
         if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
         {

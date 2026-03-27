@@ -12,6 +12,13 @@ public static class ShellLauncher
     {
         try
         {
+            // Handle shell: protocol paths (UWP/PWA apps)
+            if (item.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", item.Path));
+                return;
+            }
+
             var workDir = GetWorkingDirectory(item.Path);
 
             switch (item.Type)

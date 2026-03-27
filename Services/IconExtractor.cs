@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
@@ -9,6 +11,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Xml.Linq;
 using SidebarLauncher.Models;
 
 namespace SidebarLauncher.Services;
@@ -34,6 +37,10 @@ public class IconExtractor
 
     [DllImport("ole32.dll")]
     private static extern void CoTaskMemFree(IntPtr ptr);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHParseDisplayName(string pszName, IntPtr pbc,
+        out IntPtr ppidl, uint sfgaoIn, out uint psfgaoOut);
 
     private const uint SHGFI_ICON = 0x000000100;
     private const uint SHGFI_LARGEICON = 0x000000000;
@@ -104,6 +111,10 @@ public class IconExtractor
             if (!string.IsNullOrEmpty(item.IconPath) && File.Exists(item.IconPath))
             {
                 result = LoadImageFile(item.IconPath);
+            }
+            else if (item.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+            {
+                result = GetShellPathIcon(item.Path);
             }
             else
             {
@@ -308,6 +319,119 @@ public class IconExtractor
         {
             DestroyIcon(shinfo.hIcon);
         }
+    }
+
+    /// <summary>
+    /// Gets the icon for a UWP/PWA app from its package manifest images.
+    /// </summary>
+    /// <summary>
+    /// Gets the icon for any shell path (shell:AppsFolder\{AppID}, shell:MyComputerFolder, etc.)
+    /// by parsing it to a PIDL and using SHGetFileInfo.
+    /// </summary>
+    public static ImageSource? GetShellPathIcon(string shellPath)
+    {
+        try
+        {
+            int hr = SHParseDisplayName(shellPath, IntPtr.Zero, out IntPtr pidl, 0, out _);
+            if (hr != 0 || pidl == IntPtr.Zero) return null;
+
+            try
+            {
+                var shinfo = new SHFILEINFO();
+                var result = SHGetFileInfo(pidl, 0, ref shinfo,
+                    (uint)Marshal.SizeOf(shinfo), SHGFI_ICON | SHGFI_LARGEICON | SHGFI_PIDL);
+                if (result != IntPtr.Zero && shinfo.hIcon != IntPtr.Zero)
+                {
+                    try
+                    {
+                        using var icon = Icon.FromHandle(shinfo.hIcon);
+                        return IconToImageSource(icon);
+                    }
+                    finally
+                    {
+                        DestroyIcon(shinfo.hIcon);
+                    }
+                }
+            }
+            finally
+            {
+                CoTaskMemFree(pidl);
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    public static ImageSource? GetAppPackageIcon(string appId)
+    {
+        try
+        {
+            var familyName = appId.Split('!')[0];
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -Command \"(Get-AppxPackage | Where-Object {{ $_.PackageFamilyName -eq '{familyName}' }} | Select-Object -First 1).InstallLocation\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var proc = Process.Start(psi);
+            if (proc == null) return null;
+
+            var installLocation = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(5000);
+
+            if (string.IsNullOrEmpty(installLocation) || !Directory.Exists(installLocation))
+                return null;
+
+            var manifestPath = System.IO.Path.Combine(installLocation, "AppxManifest.xml");
+            if (!File.Exists(manifestPath)) return null;
+
+            var doc = XDocument.Load(manifestPath);
+            XNamespace uapNs = "http://schemas.microsoft.com/appx/manifest/uap/windows10";
+
+            var visualElements = doc.Descendants(uapNs + "VisualElements").FirstOrDefault();
+            var logoRelPath = visualElements?.Attribute("Square44x44Logo")?.Value;
+            if (string.IsNullOrEmpty(logoRelPath)) return null;
+
+            var logoDir = System.IO.Path.GetDirectoryName(System.IO.Path.Combine(installLocation, logoRelPath))!;
+            var logoBase = System.IO.Path.GetFileNameWithoutExtension(logoRelPath);
+            var logoExt = System.IO.Path.GetExtension(logoRelPath);
+
+            string? bestFile = null;
+            foreach (var suffix in new[] { ".targetsize-32", ".targetsize-48", ".targetsize-256", ".targetsize-24", "" })
+            {
+                var candidate = System.IO.Path.Combine(logoDir, logoBase + suffix + logoExt);
+                if (File.Exists(candidate))
+                {
+                    bestFile = candidate;
+                    break;
+                }
+                var unplated = System.IO.Path.Combine(logoDir, logoBase + suffix + "_altform-unplated" + logoExt);
+                if (File.Exists(unplated))
+                {
+                    bestFile = unplated;
+                    break;
+                }
+            }
+
+            if (bestFile == null) return null;
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(bestFile, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.DecodePixelWidth = 32;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch { }
+
+        return null;
     }
 
     private static ImageSource IconToImageSource(Icon icon)
