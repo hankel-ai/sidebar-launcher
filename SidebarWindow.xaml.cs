@@ -208,6 +208,11 @@ public partial class SidebarWindow : Window
             Cursor = Cursors.Hand
         };
 
+        var grid = new Grid();
+        var scaleTransform = new ScaleTransform(1, 1);
+        grid.RenderTransform = scaleTransform;
+        grid.RenderTransformOrigin = new Point(0.5, 0.5);
+
         // Hover effect
         border.MouseEnter += (_, _) =>
         {
@@ -218,9 +223,10 @@ public partial class SidebarWindow : Window
         {
             if (!_isDragging)
                 border.Background = Brushes.Transparent;
+            var reset = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(100));
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, reset);
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, reset);
         };
-
-        var grid = new Grid();
 
         // Icon
         var icon = _iconExtractor.GetIcon(item);
@@ -275,17 +281,33 @@ public partial class SidebarWindow : Window
         // Click to launch
         border.MouseLeftButtonUp += (_, e) =>
         {
+            // Release scale animation
+            var pressUp = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(100))
+                { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, pressUp);
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, pressUp);
+
             if (!_isDragging)
-                ShellLauncher.Launch(item);
+            {
+                var pos = e.GetPosition(this);
+                if (Math.Abs(pos.Y - _dragStartPoint.Y) <= 6)
+                    ShellLauncher.Launch(item);
+            }
         };
 
         // Drag start
         border.PreviewMouseLeftButtonDown += (_, e) =>
         {
+            _dragStartPoint = e.GetPosition(this);
+            // Press-down scale animation
+            var pressDown = new DoubleAnimation(0.85, TimeSpan.FromMilliseconds(80))
+                { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, pressDown);
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, pressDown);
+
             if (!_config.Settings.Locked)
             {
                 _dragSource = _slotViews.Values.FirstOrDefault(sv => sv.Item == item);
-                _dragStartPoint = e.GetPosition(this);
             }
         };
 
@@ -497,17 +519,30 @@ public partial class SidebarWindow : Window
             var sv = e.Data.GetData(InternalDragFormat) as SlotView;
             if (sv != null)
             {
-                // If target slot is occupied by a different item, swap them
-                var occupant = _config.Shortcuts.FirstOrDefault(
-                    s => s.Slot == targetSlot && s != sv.Item && s.Type != ShortcutType.Separator);
-
-                if (occupant != null)
+                int sourceSlot = sv.Item.Slot;
+                if (sourceSlot != targetSlot)
                 {
-                    // Swap slots
-                    occupant.Slot = sv.Item.Slot;
-                }
+                    var occupant = _config.Shortcuts.FirstOrDefault(
+                        s => s.Slot == targetSlot && s != sv.Item && s.Type != ShortcutType.Separator);
 
-                sv.Item.Slot = targetSlot;
+                    if (occupant != null)
+                    {
+                        // Target occupied — push icons between source and target toward source
+                        int direction = sourceSlot < targetSlot ? -1 : 1;
+                        int from = Math.Min(sourceSlot, targetSlot);
+                        int to = Math.Max(sourceSlot, targetSlot);
+
+                        var affected = _config.Shortcuts
+                            .Where(s => s != sv.Item && s.Type != ShortcutType.Separator
+                                        && s.Slot >= from && s.Slot <= to)
+                            .ToList();
+
+                        foreach (var item in affected)
+                            item.Slot += direction;
+                    }
+
+                    sv.Item.Slot = targetSlot;
+                }
                 _configService.Save(_config);
                 RebuildGrid();
             }

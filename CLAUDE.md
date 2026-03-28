@@ -10,8 +10,11 @@ A lightweight Windows 11 launcher bar that auto-hides at the screen edge. Hover 
 - **WinForms**: Referenced only for `Screen.AllScreens`, `FolderBrowserDialog`, and `ExtractAssociatedIcon`
 
 ## Build / Run / Test
+**After any code change, always run `buildandcopy.cmd` to rebuild, deploy, and relaunch.**
+
 ```bash
 # Build and deploy (kills running instance, builds, copies, launches)
+# Run via: cmd.exe //c "C:\Users\admin\OneDrive\ClaudeCode\SidebarLauncher\buildandcopy.cmd"
 buildandcopy.cmd
 
 # Build (debug)
