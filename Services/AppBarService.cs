@@ -98,7 +98,7 @@ public class AppBarService : IDisposable
         var screen = System.Windows.Forms.Screen.PrimaryScreen!;
         var workArea = screen.Bounds; // Use full bounds, not WorkingArea
         var dpi = VisualTreeHelper.GetDpi(_window);
-        int barWidthPx = (int)(_settings.BarWidth * dpi.DpiScaleX);
+        int barWidthPx = (int)(_settings.BarWidth * Math.Max(1, _settings.Columns) * dpi.DpiScaleX);
 
         var abd = NewAppBarData();
         abd.uEdge = _settings.Edge == ScreenEdge.Left ? ABE_LEFT : ABE_RIGHT;

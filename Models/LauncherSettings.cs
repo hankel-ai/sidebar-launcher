@@ -31,6 +31,9 @@ public class LauncherSettings
     [JsonPropertyName("monitorIndex")]
     public int MonitorIndex { get; set; } = 0;
 
+    [JsonPropertyName("columns")]
+    public int Columns { get; set; } = 1;
+
     [JsonPropertyName("locked")]
     public bool Locked { get; set; } = true;
 }

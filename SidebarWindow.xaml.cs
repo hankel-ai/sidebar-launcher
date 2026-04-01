@@ -29,6 +29,7 @@ public partial class SidebarWindow : Window
 
     // Grid state
     private int _totalSlots;
+    private int _rows;
     private readonly Dictionary<int, SlotView> _slotViews = new();
     private Rectangle? _highlightRect;
 
@@ -74,8 +75,10 @@ public partial class SidebarWindow : Window
         var workArea = screen.WorkingArea;
         var dpiScale = VisualTreeHelper.GetDpi(this);
 
-        double barWidth = _config.Settings.BarWidth;
-        Width = barWidth;
+        int cellSize = _config.Settings.BarWidth;
+        int columns = Math.Max(1, _config.Settings.Columns);
+        double totalBarWidth = cellSize * columns;
+        Width = totalBarWidth;
 
         double maxHeight = workArea.Height / dpiScale.DpiScaleY;
         Height = maxHeight;
@@ -90,17 +93,17 @@ public partial class SidebarWindow : Window
         }
         else
         {
-            Left = (workArea.Right / dpiScale.DpiScaleX) - barWidth;
+            Left = (workArea.Right / dpiScale.DpiScaleX) - totalBarWidth;
             OuterBorder.CornerRadius = new CornerRadius(8, 0, 0, 8);
             OuterBorder.BorderThickness = new Thickness(1, 1, 0, 1);
         }
 
         if (!_isVisible)
-            SlideTransform.X = _config.Settings.Edge == ScreenEdge.Left ? -barWidth : barWidth;
+            SlideTransform.X = _config.Settings.Edge == ScreenEdge.Left ? -totalBarWidth : totalBarWidth;
 
-        // Calculate total slots based on available height (minus bottom bar ~49px)
-        double availableHeight = maxHeight - 49;
-        _totalSlots = Math.Max(1, (int)(availableHeight / barWidth));
+        double availableHeight = maxHeight;
+        _rows = Math.Max(1, (int)(availableHeight / cellSize));
+        _totalSlots = _rows * columns;
     }
 
     private System.Windows.Forms.Screen GetTargetScreen()
@@ -122,8 +125,9 @@ public partial class SidebarWindow : Window
         _slotViews.Clear();
 
         int bw = _config.Settings.BarWidth;
-        SlotCanvas.Width = bw;
-        SlotCanvas.Height = _totalSlots * bw;
+        int columns = Math.Max(1, _config.Settings.Columns);
+        SlotCanvas.Width = bw * columns;
+        SlotCanvas.Height = _rows * bw;
 
         // Assign slots to shortcuts that don't have one yet
         AssignSlots();
@@ -141,16 +145,19 @@ public partial class SidebarWindow : Window
         };
         SlotCanvas.Children.Add(_highlightRect);
 
-        // Render shortcuts at their slot positions
+        // Render shortcuts at their slot positions (column-major: fill down then across)
         foreach (var shortcut in _config.Shortcuts)
         {
             if (shortcut.Type == ShortcutType.Separator) continue;
             if (shortcut.Slot < 0 || shortcut.Slot >= _totalSlots) continue;
 
+            int col = shortcut.Slot / _rows;
+            int row = shortcut.Slot % _rows;
+
             var sv = CreateSlotView(shortcut);
             _slotViews[shortcut.Slot] = sv;
-            Canvas.SetLeft(sv.Element, 0);
-            Canvas.SetTop(sv.Element, shortcut.Slot * bw);
+            Canvas.SetLeft(sv.Element, col * bw);
+            Canvas.SetTop(sv.Element, row * bw);
             SlotCanvas.Children.Add(sv.Element);
         }
     }
@@ -290,7 +297,8 @@ public partial class SidebarWindow : Window
             if (!_isDragging)
             {
                 var pos = e.GetPosition(this);
-                if (Math.Abs(pos.Y - _dragStartPoint.Y) <= 6)
+                var delta = pos - _dragStartPoint;
+                if (Math.Abs(delta.X) <= 6 && Math.Abs(delta.Y) <= 6)
                     ShellLauncher.Launch(item);
             }
         };
@@ -317,7 +325,8 @@ public partial class SidebarWindow : Window
                 e.LeftButton == MouseButtonState.Pressed && !_isDragging)
             {
                 var pos = e.GetPosition(this);
-                if (Math.Abs(pos.Y - _dragStartPoint.Y) > 6)
+                var delta = pos - _dragStartPoint;
+                if (Math.Abs(delta.X) > 6 || Math.Abs(delta.Y) > 6)
                 {
                     _isDragging = true;
                     _hideTimer.Stop();
@@ -391,8 +400,9 @@ public partial class SidebarWindow : Window
         if (!_isVisible || _isAnimating || _config.Settings.Pinned || _contextMenuOpen || _isDragging) return;
 
         _isAnimating = true;
+        double totalBarWidth = _config.Settings.BarWidth * Math.Max(1, _config.Settings.Columns);
         double target = _config.Settings.Edge == ScreenEdge.Left
-            ? -_config.Settings.BarWidth : _config.Settings.BarWidth;
+            ? -totalBarWidth : totalBarWidth;
 
         var animation = new DoubleAnimation
         {
@@ -453,7 +463,10 @@ public partial class SidebarWindow : Window
     private int GetSlotFromPoint(DragEventArgs e)
     {
         var pos = e.GetPosition(SlotCanvas);
-        int slot = (int)(pos.Y / _config.Settings.BarWidth);
+        int bw = _config.Settings.BarWidth;
+        int row = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
+        int col = Math.Clamp((int)(pos.X / bw), 0, Math.Max(1, _config.Settings.Columns) - 1);
+        int slot = col * _rows + row;
         return Math.Clamp(slot, 0, _totalSlots - 1);
     }
 
@@ -487,8 +500,11 @@ public partial class SidebarWindow : Window
             int slot = GetSlotFromPoint(e);
             if (_highlightRect != null)
             {
-                Canvas.SetTop(_highlightRect, slot * _config.Settings.BarWidth);
-                Canvas.SetLeft(_highlightRect, 0);
+                int bw = _config.Settings.BarWidth;
+                int highlightCol = slot / _rows;
+                int highlightRow = slot % _rows;
+                Canvas.SetLeft(_highlightRect, highlightCol * bw);
+                Canvas.SetTop(_highlightRect, highlightRow * bw);
                 _highlightRect.Visibility = Visibility.Visible;
             }
         }
@@ -525,20 +541,83 @@ public partial class SidebarWindow : Window
                     var occupant = _config.Shortcuts.FirstOrDefault(
                         s => s.Slot == targetSlot && s != sv.Item && s.Type != ShortcutType.Separator);
 
-                    if (occupant != null)
+                    // Remove dragged item from its slot so it becomes the gap
+                    sv.Item.Slot = -1;
+
+                    // Build set of occupied slots (excluding dragged item)
+                    var occupied = new HashSet<int>(
+                        _config.Shortcuts
+                            .Where(s => s != sv.Item && s.Type != ShortcutType.Separator && s.Slot >= 0)
+                            .Select(s => s.Slot));
+
+                    if (occupied.Contains(targetSlot))
                     {
-                        // Target occupied — push icons between source and target toward source
-                        int direction = sourceSlot < targetSlot ? -1 : 1;
-                        int from = Math.Min(sourceSlot, targetSlot);
-                        int to = Math.Max(sourceSlot, targetSlot);
+                        int sourceCol = sourceSlot / _rows;
+                        int targetCol = targetSlot / _rows;
 
-                        var affected = _config.Shortcuts
-                            .Where(s => s != sv.Item && s.Type != ShortcutType.Separator
-                                        && s.Slot >= from && s.Slot <= to)
-                            .ToList();
+                        if (sourceCol != targetCol)
+                        {
+                            // Cross-column drag: find nearest gap within target column, shift toward it
+                            int colStart = targetCol * _rows;
+                            int colEnd = colStart + _rows - 1;
 
-                        foreach (var item in affected)
-                            item.Slot += direction;
+                            // Search both directions from target for nearest gap in this column
+                            int gapSlot = -1;
+                            for (int dist = 1; dist < _rows; dist++)
+                            {
+                                int up = targetSlot - dist;
+                                if (up >= colStart && !occupied.Contains(up)) { gapSlot = up; break; }
+                                int down = targetSlot + dist;
+                                if (down <= colEnd && !occupied.Contains(down)) { gapSlot = down; break; }
+                            }
+
+                            if (gapSlot >= 0)
+                            {
+                                int step = gapSlot < targetSlot ? -1 : 1;
+                                int s = gapSlot - step;
+                                while (s != targetSlot - step)
+                                {
+                                    if (occupied.Contains(s))
+                                    {
+                                        var item = _config.Shortcuts.FirstOrDefault(
+                                            sc => sc.Slot == s && sc != sv.Item && sc.Type != ShortcutType.Separator);
+                                        if (item != null)
+                                            item.Slot = s + step;
+                                    }
+                                    s -= step;
+                                }
+                            }
+                            else
+                            {
+                                // No gap in target column — swap with occupant
+                                occupant.Slot = sourceSlot;
+                            }
+                        }
+                        else
+                        {
+                            // Same-column drag: shift in the direction the dragged icon came from
+                            int step = sourceSlot > targetSlot ? 1 : -1;
+
+                            int gapSlot = targetSlot;
+                            while (gapSlot >= 0 && gapSlot < _totalSlots && occupied.Contains(gapSlot))
+                                gapSlot += step;
+
+                            if (gapSlot >= 0 && gapSlot < _totalSlots)
+                            {
+                                int s = gapSlot - step;
+                                while (s != targetSlot - step)
+                                {
+                                    if (occupied.Contains(s))
+                                    {
+                                        var item = _config.Shortcuts.FirstOrDefault(
+                                            sc => sc.Slot == s && sc != sv.Item && sc.Type != ShortcutType.Separator);
+                                        if (item != null)
+                                            item.Slot = s + step;
+                                    }
+                                    s -= step;
+                                }
+                            }
+                        }
                     }
 
                     sv.Item.Slot = targetSlot;
@@ -626,7 +705,11 @@ public partial class SidebarWindow : Window
 
         // Check if we clicked on a shortcut
         var pos = e.GetPosition(SlotCanvas);
-        int slot = (int)(pos.Y / _config.Settings.BarWidth);
+        int bw = _config.Settings.BarWidth;
+        int columns = Math.Max(1, _config.Settings.Columns);
+        int clickRow = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
+        int clickCol = Math.Clamp((int)(pos.X / bw), 0, columns - 1);
+        int slot = clickCol * _rows + clickRow;
         var clickedItem = _config.Shortcuts.FirstOrDefault(
             s => s.Slot == slot && s.Type != ShortcutType.Separator);
 
@@ -655,6 +738,84 @@ public partial class SidebarWindow : Window
                 ResetInteractionState();
             };
             menu.Items.Add(removeItem);
+
+            menu.Items.Add(new Separator());
+        }
+
+        // Push All Up / Push All Down — create a gap at the clicked slot
+        {
+            int colStart = (slot / _rows) * _rows;
+            int colEnd = colStart + _rows - 1;
+            var occupiedSlots = new HashSet<int>(
+                _config.Shortcuts
+                    .Where(s => s.Type != ShortcutType.Separator && s.Slot >= 0)
+                    .Select(s => s.Slot));
+
+            // Check for gap above (lower slot in same column)
+            bool hasGapAbove = false;
+            for (int s = slot - 1; s >= colStart; s--)
+            {
+                if (!occupiedSlots.Contains(s)) { hasGapAbove = true; break; }
+            }
+
+            var pushUp = new MenuItem { Header = "Push All Up", IsEnabled = hasGapAbove };
+            pushUp.Click += (_, _) =>
+            {
+                // Find nearest gap above
+                int gap = -1;
+                for (int s = slot - 1; s >= colStart; s--)
+                {
+                    if (!occupiedSlots.Contains(s)) { gap = s; break; }
+                }
+                if (gap >= 0)
+                {
+                    // Shift icons from gap+1 to slot up by one (toward gap)
+                    for (int s = gap + 1; s <= slot; s++)
+                    {
+                        var item = _config.Shortcuts.FirstOrDefault(
+                            sc => sc.Slot == s && sc.Type != ShortcutType.Separator);
+                        if (item != null)
+                            item.Slot = s - 1;
+                    }
+                    _configService.Save(_config);
+                    RebuildGrid();
+                }
+                ResetInteractionState();
+            };
+            menu.Items.Add(pushUp);
+
+            // Check for gap below (higher slot in same column)
+            bool hasGapBelow = false;
+            for (int s = slot + 1; s <= colEnd; s++)
+            {
+                if (!occupiedSlots.Contains(s)) { hasGapBelow = true; break; }
+            }
+
+            var pushDown = new MenuItem { Header = "Push All Down", IsEnabled = hasGapBelow };
+            pushDown.Click += (_, _) =>
+            {
+                // Find nearest gap below
+                int gap = -1;
+                for (int s = slot + 1; s <= colEnd; s++)
+                {
+                    if (!occupiedSlots.Contains(s)) { gap = s; break; }
+                }
+                if (gap >= 0)
+                {
+                    // Shift icons from slot to gap-1 down by one (toward gap)
+                    for (int s = gap - 1; s >= slot; s--)
+                    {
+                        var item = _config.Shortcuts.FirstOrDefault(
+                            sc => sc.Slot == s && sc.Type != ShortcutType.Separator);
+                        if (item != null)
+                            item.Slot = s + 1;
+                    }
+                    _configService.Save(_config);
+                    RebuildGrid();
+                }
+                ResetInteractionState();
+            };
+            menu.Items.Add(pushDown);
 
             menu.Items.Add(new Separator());
         }
@@ -744,6 +905,24 @@ public partial class SidebarWindow : Window
         menu.Items.Add(lockItem);
 
         menu.Items.Add(new Separator());
+
+        var columnsSubMenu = new MenuItem { Header = "Columns" };
+        for (int c = 1; c <= 4; c++)
+        {
+            int cols = c;
+            var colItem = new MenuItem { Header = cols.ToString(), IsChecked = _config.Settings.Columns == cols };
+            colItem.Click += (_, _) =>
+            {
+                _config.Settings.Columns = cols;
+                _configService.Save(_config);
+                Reposition();
+                RebuildGrid();
+                if (_appBar != null) _appBar.SetPosition();
+                ResetInteractionState();
+            };
+            columnsSubMenu.Items.Add(colItem);
+        }
+        menu.Items.Add(columnsSubMenu);
 
         var edgeSubMenu = new MenuItem { Header = "Edge" };
         var leftItem = new MenuItem { Header = "Left", IsChecked = _config.Settings.Edge == ScreenEdge.Left };

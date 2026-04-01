@@ -34,44 +34,10 @@
             <DropShadowEffect BlurRadius="10" Opacity="0.5" ShadowDepth="3" Color="Black"/>
         </Border.Effect>
 
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- Grid of slots -->
-            <ScrollViewer Grid.Row="0"
-                          VerticalScrollBarVisibility="Hidden"
-                          HorizontalScrollBarVisibility="Disabled"
-                          PreviewMouseWheel="OnScrollWheel">
-                <Canvas x:Name="SlotCanvas" ClipToBounds="True"/>
-            </ScrollViewer>
-
-            <!-- Bottom bar: lock indicator + add button -->
-            <StackPanel Grid.Row="1">
-                <Rectangle Height="1" Fill="#30FFFFFF"/>
-                <Border Width="48" Height="48"
-                        Background="Transparent"
-                        Cursor="Hand"
-                        MouseLeftButtonUp="OnAddClick"
-                        ToolTip="Add shortcut">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="#30FFFFFF"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="+"
-                               FontSize="24"
-                               Foreground="#999999"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
-                </Border>
-            </StackPanel>
-        </Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled"
+                      PreviewMouseWheel="OnScrollWheel">
+            <Canvas x:Name="SlotCanvas" ClipToBounds="True"/>
+        </ScrollViewer>
     </Border>
 </Window>

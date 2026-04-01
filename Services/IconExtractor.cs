@@ -110,7 +110,20 @@ public class IconExtractor
         {
             if (!string.IsNullOrEmpty(item.IconPath) && File.Exists(item.IconPath))
             {
-                result = LoadImageFile(item.IconPath);
+                var ext = Path.GetExtension(item.IconPath).ToLowerInvariant();
+                if (ext == ".exe" || ext == ".dll" || ext == ".ico")
+                {
+                    result = ExtractIconByIndex(item.IconPath, 0);
+                    if (result == null)
+                    {
+                        using var ico = Icon.ExtractAssociatedIcon(item.IconPath);
+                        if (ico != null) result = IconToImageSource(ico);
+                    }
+                }
+                else
+                {
+                    result = LoadImageFile(item.IconPath);
+                }
             }
             else if (item.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
             {
