@@ -890,22 +890,6 @@ public partial class SidebarWindow : Window
 
         menu.Items.Add(new Separator());
 
-        var lockItem = new MenuItem
-        {
-            Header = "Lock Icons",
-            IsCheckable = true,
-            IsChecked = _config.Settings.Locked
-        };
-        lockItem.Click += (_, _) =>
-        {
-            _config.Settings.Locked = !_config.Settings.Locked;
-            _configService.Save(_config);
-            ResetInteractionState();
-        };
-        menu.Items.Add(lockItem);
-
-        menu.Items.Add(new Separator());
-
         var columnsSubMenu = new MenuItem { Header = "Columns" };
         for (int c = 1; c <= 4; c++)
         {
@@ -932,6 +916,20 @@ public partial class SidebarWindow : Window
         rightItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Right); ResetInteractionState(); };
         edgeSubMenu.Items.Add(rightItem);
         menu.Items.Add(edgeSubMenu);
+
+        var lockItem = new MenuItem
+        {
+            Header = "Lock Icons",
+            IsCheckable = true,
+            IsChecked = _config.Settings.Locked
+        };
+        lockItem.Click += (_, _) =>
+        {
+            _config.Settings.Locked = !_config.Settings.Locked;
+            _configService.Save(_config);
+            ResetInteractionState();
+        };
+        menu.Items.Add(lockItem);
 
         var pinItem = new MenuItem
         {
