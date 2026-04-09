@@ -2,6 +2,8 @@ using System;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
+using System.Windows.Threading;
+using Microsoft.Win32;
 using SidebarLauncher.Models;
 using SidebarLauncher.Services;
 
@@ -12,6 +14,7 @@ public partial class EdgeDetector : Window
     private readonly LauncherConfig _config;
     private readonly ConfigService _configService;
     private SidebarWindow? _sidebar;
+    private readonly DispatcherTimer _topmostTimer;
 
     public EdgeDetector(LauncherConfig config, ConfigService configService)
     {
@@ -19,11 +22,29 @@ public partial class EdgeDetector : Window
         _configService = configService;
         InitializeComponent();
         Loaded += OnLoaded;
+
+        // Periodically reassert Topmost — Windows can demote it after
+        // session switches, fullscreen apps, or RDP reconnections.
+        _topmostTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _topmostTimer.Tick += (_, _) =>
+        {
+            if (!Topmost) Topmost = true;
+            // Force Win32 z-order refresh even when property is already true
+            Topmost = false;
+            Topmost = true;
+        };
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         PositionAtEdge();
+        _topmostTimer.Start();
+
+        // Reposition when display resolution/DPI changes (e.g. RDP from iPad)
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+
+        // Reposition + reassert Topmost on RDP session unlock/reconnect
+        SystemEvents.SessionSwitch += OnSessionSwitch;
 
         if (_config.Settings.Pinned)
             ShowSidebar();
@@ -113,8 +134,33 @@ public partial class EdgeDetector : Window
         }
     }
 
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        // Display resolution or DPI changed — reposition to new screen edge
+        Dispatcher.BeginInvoke(PositionAtEdge);
+    }
+
+    private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+    {
+        if (e.Reason == SessionSwitchReason.SessionUnlock ||
+            e.Reason == SessionSwitchReason.RemoteConnect ||
+            e.Reason == SessionSwitchReason.ConsoleConnect)
+        {
+            // After RDP reconnect or unlock, reposition and force z-order
+            Dispatcher.BeginInvoke(() =>
+            {
+                PositionAtEdge();
+                Topmost = false;
+                Topmost = true;
+            });
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        _topmostTimer.Stop();
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        SystemEvents.SessionSwitch -= OnSessionSwitch;
         base.OnClosed(e);
     }
 }
