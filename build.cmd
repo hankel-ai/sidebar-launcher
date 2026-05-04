@@ -56,6 +56,10 @@ echo Using dotnet: %DOTNET%
 "%DOTNET%" --version
 
 REM --- Restore + publish -------------------------------------------------
+echo Stopping any running SidebarLauncher instance...
+taskkill /f /im SidebarLauncher.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+
 echo Restoring packages...
 "%DOTNET%" restore "%SCRIPTDIR%SidebarLauncher.csproj"
 if errorlevel 1 (
