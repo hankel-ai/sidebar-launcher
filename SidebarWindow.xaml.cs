@@ -850,29 +850,15 @@ public partial class SidebarWindow : Window
         var importStartMenu = new MenuItem { Header = "Start Menu..." };
         importStartMenu.Click += (_, _) =>
         {
-            var userStartRoot = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                @"Microsoft\Windows\Start Menu");
-            var allStartRoot = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                @"Microsoft\Windows\Start Menu");
-            ImportFrom("Import from Start Menu", new string[] { userStartRoot, allStartRoot });
-            ResetInteractionState();
-        };
-        importMenu.Items.Add(importStartMenu);
-
-        var importApps = new MenuItem { Header = "Installed Apps..." };
-        importApps.Click += (_, _) =>
-        {
             var entries = ImportShortcutsWindow.DiscoverInstalledApps(GetExistingPaths());
             if (entries.Count == 0)
             {
-                MessageBox.Show("No additional installed apps found.", "Import",
+                MessageBox.Show("No additional Start Menu apps found.", "Import",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 ResetInteractionState();
                 return;
             }
-            var dialog = new ImportShortcutsWindow("Import Installed Apps", entries) { Owner = this };
+            var dialog = new ImportShortcutsWindow("Import from Start Menu", entries) { Owner = this };
             if (dialog.ShowDialog() == true && dialog.SelectedShortcuts.Count > 0)
             {
                 foreach (var item in dialog.SelectedShortcuts)
@@ -885,7 +871,7 @@ public partial class SidebarWindow : Window
             }
             ResetInteractionState();
         };
-        importMenu.Items.Add(importApps);
+        importMenu.Items.Add(importStartMenu);
         menu.Items.Add(importMenu);
 
         menu.Items.Add(new Separator());

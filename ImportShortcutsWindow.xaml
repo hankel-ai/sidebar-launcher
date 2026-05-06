@@ -44,7 +44,10 @@
 
             <ListBox Grid.Row="4" x:Name="ShortcutList"
                      Background="#222222" BorderBrush="#444444" BorderThickness="1"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     IsTextSearchEnabled="True"
+                     TextSearch.TextPath="Name"
+                     Loaded="ShortcutList_Loaded">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal" Margin="2">

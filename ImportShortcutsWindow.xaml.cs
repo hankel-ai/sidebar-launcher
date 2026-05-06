@@ -6,6 +6,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -106,6 +107,15 @@ public partial class ImportShortcutsWindow : Window
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
+
+    private void ShortcutList_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_entries.Count == 0) return;
+        ShortcutList.Focus();
+        ShortcutList.SelectedIndex = 0;
+        if (ShortcutList.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem item)
+            item.Focus();
+    }
 
     private void OnSelectAll(object sender, MouseButtonEventArgs e)
     {
