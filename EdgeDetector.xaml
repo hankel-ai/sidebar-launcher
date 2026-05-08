@@ -8,6 +8,7 @@
         ShowInTaskbar="False"
         Topmost="True"
         MouseEnter="OnMouseEnter"
+        MouseLeave="OnMouseLeave"
         AllowDrop="True"
         DragEnter="OnDragEnter">
     <!-- Nearly invisible 2px strip for edge hover detection.

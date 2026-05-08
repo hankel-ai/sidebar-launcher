@@ -894,6 +894,36 @@ public partial class SidebarWindow : Window
         }
         menu.Items.Add(columnsSubMenu);
 
+        var hoverDelaySubMenu = new MenuItem { Header = "Hover Delay" };
+        var hoverDelayOptions = new (string Label, int Ms)[]
+        {
+            ("Instant",   0),
+            ("250 ms",  250),
+            ("500 ms",  500),
+            ("750 ms",  750),
+            ("1 second", 1000),
+            ("1.5 seconds", 1500),
+            ("2 seconds", 2000),
+            ("3 seconds", 3000)
+        };
+        foreach (var (label, ms) in hoverDelayOptions)
+        {
+            int captured = ms;
+            var item = new MenuItem
+            {
+                Header = label,
+                IsChecked = _config.Settings.HoverShowDelayMs == captured
+            };
+            item.Click += (_, _) =>
+            {
+                _config.Settings.HoverShowDelayMs = captured;
+                _configService.Save(_config);
+                ResetInteractionState();
+            };
+            hoverDelaySubMenu.Items.Add(item);
+        }
+        menu.Items.Add(hoverDelaySubMenu);
+
         var edgeSubMenu = new MenuItem { Header = "Edge" };
         var leftItem = new MenuItem { Header = "Left", IsChecked = _config.Settings.Edge == ScreenEdge.Left };
         leftItem.Click += (_, _) => { _edgeDetector.SwitchEdge(ScreenEdge.Left); ResetInteractionState(); };

@@ -44,6 +44,7 @@ User config lives at `%APPDATA%\SidebarLauncher\config.json`. Supports:
 - Edge: Left or Right
 - Icon size, bar width, opacity
 - Auto-hide delay, slide animation speed
+- Hover-show delay (`hoverShowDelayMs`, default 1000ms) — debounce before sidebar slides in on edge hover, configurable via "Hover Delay" submenu in right-click context menu
 - Pinned mode toggle
 - Lock icons toggle
 - Monitor selection

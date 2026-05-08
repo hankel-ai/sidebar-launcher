@@ -13,6 +13,9 @@ public class LauncherSettings
     [JsonPropertyName("autoHideDelayMs")]
     public int AutoHideDelayMs { get; set; } = 400;
 
+    [JsonPropertyName("hoverShowDelayMs")]
+    public int HoverShowDelayMs { get; set; } = 1000;
+
     [JsonPropertyName("slideAnimationMs")]
     public int SlideAnimationMs { get; set; } = 200;
 

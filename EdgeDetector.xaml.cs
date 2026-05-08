@@ -15,6 +15,7 @@ public partial class EdgeDetector : Window
     private readonly ConfigService _configService;
     private SidebarWindow? _sidebar;
     private readonly DispatcherTimer _topmostTimer;
+    private readonly DispatcherTimer _hoverShowTimer;
 
     public EdgeDetector(LauncherConfig config, ConfigService configService)
     {
@@ -32,6 +33,16 @@ public partial class EdgeDetector : Window
             // Force Win32 z-order refresh even when property is already true
             Topmost = false;
             Topmost = true;
+        };
+
+        // Delay before showing sidebar on edge hover — prevents false positives
+        // when the cursor briefly grazes the screen edge.
+        _hoverShowTimer = new DispatcherTimer();
+        _hoverShowTimer.Tick += (_, _) =>
+        {
+            _hoverShowTimer.Stop();
+            if (IsMouseOver)
+                ShowSidebar();
         };
     }
 
@@ -84,12 +95,27 @@ public partial class EdgeDetector : Window
 
     private void OnMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        ShowSidebar();
+        int delay = Math.Max(0, _config.Settings.HoverShowDelayMs);
+        if (delay <= 0)
+        {
+            ShowSidebar();
+            return;
+        }
+        _hoverShowTimer.Stop();
+        _hoverShowTimer.Interval = TimeSpan.FromMilliseconds(delay);
+        _hoverShowTimer.Start();
+    }
+
+    private void OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // Cursor left the edge before the delay elapsed — cancel the show
+        _hoverShowTimer.Stop();
     }
 
     private void OnDragEnter(object sender, System.Windows.DragEventArgs e)
     {
-        // Show sidebar when user drags files to the edge
+        // Show sidebar immediately on drag — drag intent is unambiguous
+        _hoverShowTimer.Stop();
         ShowSidebar();
     }
 
@@ -159,6 +185,7 @@ public partial class EdgeDetector : Window
     protected override void OnClosed(EventArgs e)
     {
         _topmostTimer.Stop();
+        _hoverShowTimer.Stop();
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         SystemEvents.SessionSwitch -= OnSessionSwitch;
         base.OnClosed(e);
