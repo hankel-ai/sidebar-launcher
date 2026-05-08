@@ -299,7 +299,14 @@ public partial class SidebarWindow : Window
                 var pos = e.GetPosition(this);
                 var delta = pos - _dragStartPoint;
                 if (Math.Abs(delta.X) <= 6 && Math.Abs(delta.Y) <= 6)
-                    ShellLauncher.Launch(item);
+                {
+                    // Shift+Click on a folder shortcut → open Windows Terminal tab at that path
+                    bool shiftHeld = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+                    if (shiftHeld && item.Type == ShortcutType.Folder)
+                        ShellLauncher.OpenTerminalAt(item.Path);
+                    else
+                        ShellLauncher.Launch(item);
+                }
             }
         };
 
@@ -717,6 +724,23 @@ public partial class SidebarWindow : Window
 
         if (clickedItem != null)
         {
+            if (clickedItem.Type == ShortcutType.Folder)
+            {
+                var terminalItem = new MenuItem
+                {
+                    Header = "Open in Terminal",
+                    InputGestureText = "Shift+Click",
+                    FontWeight = FontWeights.Bold
+                };
+                terminalItem.Click += (_, _) =>
+                {
+                    ShellLauncher.OpenTerminalAt(clickedItem.Path);
+                    ResetInteractionState();
+                };
+                menu.Items.Add(terminalItem);
+                menu.Items.Add(new Separator());
+            }
+
             var editItem = new MenuItem { Header = "Edit" };
             editItem.Click += (_, _) => { EditShortcut(clickedItem); ResetInteractionState(); };
             menu.Items.Add(editItem);

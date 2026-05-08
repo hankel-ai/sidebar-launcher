@@ -74,6 +74,38 @@ public static class ShellLauncher
         }
     }
 
+    public static void OpenTerminalAt(string folderPath)
+    {
+        try
+        {
+            // Try Windows Terminal first — opens a new tab in the current window if one exists
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "wt.exe",
+                Arguments = $"-w 0 nt -d \"{folderPath}\"",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Fall back to cmd if wt.exe is not installed
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    WorkingDirectory = folderPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open terminal at:\n{folderPath}\n\n{ex.Message}",
+                    "Sidebar Launcher", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
     private static string GetWorkingDirectory(string path)
     {
         try
