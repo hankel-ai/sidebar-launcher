@@ -15,7 +15,7 @@ public static class ShellLauncher
             // Handle shell: protocol paths (UWP/PWA apps)
             if (item.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
             {
-                Process.Start(new ProcessStartInfo("explorer.exe", item.Path));
+                Process.Start(new ProcessStartInfo("explorer.exe", item.Path) { UseShellExecute = true });
                 return;
             }
 
@@ -32,7 +32,12 @@ public static class ShellLauncher
                     break;
 
                 case ShortcutType.Folder:
-                    Process.Start(new ProcessStartInfo("explorer.exe", $"\"{item.Path}\""));
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = item.Path,
+                        UseShellExecute = true,
+                        Verb = "open"
+                    });
                     break;
 
                 case ShortcutType.Terminal:
