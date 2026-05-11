@@ -43,7 +43,6 @@ public static class ShellLauncher
                 case ShortcutType.Terminal:
                     if (item.NewTab)
                     {
-                        // Open as a new tab in an existing Windows Terminal window
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "wt.exe",
