@@ -162,8 +162,13 @@ public partial class EdgeDetector : Window
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
-        // Display resolution or DPI changed — reposition to new screen edge
-        Dispatcher.BeginInvoke(PositionAtEdge);
+        // Display resolution or DPI changed — reposition edge strip AND
+        // re-fit the visible sidebar to the new work area.
+        Dispatcher.BeginInvoke(() =>
+        {
+            PositionAtEdge();
+            _sidebar?.Relayout();
+        });
     }
 
     private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
@@ -172,10 +177,12 @@ public partial class EdgeDetector : Window
             e.Reason == SessionSwitchReason.RemoteConnect ||
             e.Reason == SessionSwitchReason.ConsoleConnect)
         {
-            // After RDP reconnect or unlock, reposition and force z-order
+            // RDP reconnect / unlock: resolution may have changed, so re-fit
+            // the sidebar to the new work area and force z-order.
             Dispatcher.BeginInvoke(() =>
             {
                 PositionAtEdge();
+                _sidebar?.Relayout();
                 Topmost = false;
                 Topmost = true;
             });

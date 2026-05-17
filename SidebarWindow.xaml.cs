@@ -106,6 +106,13 @@ public partial class SidebarWindow : Window
         _totalSlots = _rows * columns;
     }
 
+    public void Relayout()
+    {
+        Reposition();
+        RebuildGrid();
+        _appBar?.SetPosition();
+    }
+
     private System.Windows.Forms.Screen GetTargetScreen()
     {
         var screens = System.Windows.Forms.Screen.AllScreens;
