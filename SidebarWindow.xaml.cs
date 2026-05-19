@@ -173,26 +173,17 @@ public partial class SidebarWindow : Window
 
     private void AssignSlots()
     {
-        // Find shortcuts without a valid slot and assign them to the next free slot
         var usedSlots = new HashSet<int>(
             _config.Shortcuts
-                .Where(s => s.Slot >= 0 && s.Slot < _totalSlots && s.Type != ShortcutType.Separator)
+                .Where(s => s.Slot >= 0 && s.Type != ShortcutType.Separator)
                 .Select(s => s.Slot));
 
         bool changed = false;
         foreach (var shortcut in _config.Shortcuts)
         {
             if (shortcut.Type == ShortcutType.Separator) continue;
-            if (shortcut.Slot >= 0 && shortcut.Slot < _totalSlots && !usedSlots.Contains(shortcut.Slot))
-            {
-                // Slot is valid but check for conflicts (shouldn't happen)
-                usedSlots.Add(shortcut.Slot);
-                continue;
-            }
-            if (shortcut.Slot >= 0 && shortcut.Slot < _totalSlots)
-                continue; // Already assigned
+            if (shortcut.Slot >= 0) continue;
 
-            // Find next free slot
             for (int i = 0; i < _totalSlots; i++)
             {
                 if (!usedSlots.Contains(i))
