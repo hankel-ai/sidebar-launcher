@@ -30,6 +30,7 @@ public partial class SidebarWindow : Window
     // Grid state
     private int _totalSlots;
     private int _rows;
+    private int _effectiveColumns;
     private readonly Dictionary<int, SlotView> _slotViews = new();
     private Rectangle? _highlightRect;
 
@@ -76,12 +77,23 @@ public partial class SidebarWindow : Window
         var dpiScale = VisualTreeHelper.GetDpi(this);
 
         int cellSize = _config.Settings.BarWidth;
-        int columns = Math.Max(1, _config.Settings.Columns);
-        double totalBarWidth = cellSize * columns;
-        Width = totalBarWidth;
-
         double maxHeight = workArea.Height / dpiScale.DpiScaleY;
         Height = maxHeight;
+
+        _rows = Math.Max(1, (int)(maxHeight / cellSize));
+        int configuredColumns = Math.Max(1, _config.Settings.Columns);
+        int maxSlot = _config.Shortcuts
+            .Where(s => s.Slot >= 0 && s.Type != ShortcutType.Separator)
+            .Select(s => s.Slot)
+            .DefaultIfEmpty(-1)
+            .Max();
+        _effectiveColumns = configuredColumns;
+        if (maxSlot >= _rows * configuredColumns)
+            _effectiveColumns = (maxSlot / _rows) + 1;
+        _totalSlots = _rows * _effectiveColumns;
+
+        double totalBarWidth = cellSize * _effectiveColumns;
+        Width = totalBarWidth;
 
         Top = workArea.Top / dpiScale.DpiScaleY;
 
@@ -100,10 +112,6 @@ public partial class SidebarWindow : Window
 
         if (!_isVisible)
             SlideTransform.X = _config.Settings.Edge == ScreenEdge.Left ? -totalBarWidth : totalBarWidth;
-
-        double availableHeight = maxHeight;
-        _rows = Math.Max(1, (int)(availableHeight / cellSize));
-        _totalSlots = _rows * columns;
     }
 
     public void Relayout()
@@ -132,8 +140,7 @@ public partial class SidebarWindow : Window
         _slotViews.Clear();
 
         int bw = _config.Settings.BarWidth;
-        int columns = Math.Max(1, _config.Settings.Columns);
-        SlotCanvas.Width = bw * columns;
+        SlotCanvas.Width = bw * _effectiveColumns;
         SlotCanvas.Height = _rows * bw;
 
         // Assign slots to shortcuts that don't have one yet
@@ -405,7 +412,7 @@ public partial class SidebarWindow : Window
         if (!_isVisible || _isAnimating || _config.Settings.Pinned || _contextMenuOpen || _isDragging) return;
 
         _isAnimating = true;
-        double totalBarWidth = _config.Settings.BarWidth * Math.Max(1, _config.Settings.Columns);
+        double totalBarWidth = _config.Settings.BarWidth * _effectiveColumns;
         double target = _config.Settings.Edge == ScreenEdge.Left
             ? -totalBarWidth : totalBarWidth;
 
@@ -470,7 +477,7 @@ public partial class SidebarWindow : Window
         var pos = e.GetPosition(SlotCanvas);
         int bw = _config.Settings.BarWidth;
         int row = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
-        int col = Math.Clamp((int)(pos.X / bw), 0, Math.Max(1, _config.Settings.Columns) - 1);
+        int col = Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1);
         int slot = col * _rows + row;
         return Math.Clamp(slot, 0, _totalSlots - 1);
     }
@@ -711,9 +718,8 @@ public partial class SidebarWindow : Window
         // Check if we clicked on a shortcut
         var pos = e.GetPosition(SlotCanvas);
         int bw = _config.Settings.BarWidth;
-        int columns = Math.Max(1, _config.Settings.Columns);
         int clickRow = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
-        int clickCol = Math.Clamp((int)(pos.X / bw), 0, columns - 1);
+        int clickCol = Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1);
         int slot = clickCol * _rows + clickRow;
         var clickedItem = _config.Shortcuts.FirstOrDefault(
             s => s.Slot == slot && s.Type != ShortcutType.Separator);
