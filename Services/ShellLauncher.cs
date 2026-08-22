@@ -20,11 +20,12 @@ public static class ShellLauncher
             }
 
             var workDir = GetWorkingDirectory(item.Path);
+            var args = item.Arguments?.Trim() ?? string.Empty;
 
             switch (item.Type)
             {
                 case ShortcutType.Script:
-                    LaunchScript(item.Path, workDir);
+                    LaunchScript(item.Path, args, workDir);
                     break;
 
                 case ShortcutType.Url:
@@ -46,7 +47,7 @@ public static class ShellLauncher
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "wt.exe",
-                            Arguments = $"-w 0 nt cmd /k {item.Path}",
+                            Arguments = $"-w 0 nt cmd /k {Join(item.Path, args)}",
                             UseShellExecute = true
                         });
                     }
@@ -55,7 +56,7 @@ public static class ShellLauncher
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "cmd.exe",
-                            Arguments = $"/k {item.Path}",
+                            Arguments = $"/k {Join(item.Path, args)}",
                             WorkingDirectory = workDir,
                             UseShellExecute = true
                         });
@@ -65,6 +66,7 @@ public static class ShellLauncher
                 default:
                     Process.Start(new ProcessStartInfo(item.Path)
                     {
+                        Arguments = args,
                         UseShellExecute = true,
                         WorkingDirectory = workDir
                     });
@@ -124,7 +126,10 @@ public static class ShellLauncher
         return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     }
 
-    private static void LaunchScript(string path, string workDir)
+    private static string Join(string a, string b)
+        => string.IsNullOrEmpty(b) ? a : a + " " + b;
+
+    private static void LaunchScript(string path, string args, string workDir)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
         switch (ext)
@@ -133,7 +138,7 @@ public static class ShellLauncher
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = $"-ExecutionPolicy Bypass -File \"{path}\"",
+                    Arguments = Join($"-ExecutionPolicy Bypass -File \"{path}\"", args),
                     WorkingDirectory = workDir,
                     UseShellExecute = true
                 });
@@ -141,16 +146,10 @@ public static class ShellLauncher
 
             case ".bat":
             case ".cmd":
-                Process.Start(new ProcessStartInfo(path)
-                {
-                    WorkingDirectory = workDir,
-                    UseShellExecute = true
-                });
-                break;
-
             default:
                 Process.Start(new ProcessStartInfo(path)
                 {
+                    Arguments = args,
                     WorkingDirectory = workDir,
                     UseShellExecute = true
                 });

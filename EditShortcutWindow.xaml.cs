@@ -28,6 +28,7 @@ public partial class EditShortcutWindow : Window
             Title = "Edit Shortcut";
             NameBox.Text = existing.Name;
             PathBox.Text = existing.Path;
+            ArgsBox.Text = existing.Arguments ?? string.Empty;
             IconPathBox.Text = existing.IconPath ?? "(default)";
             NewTabCheck.IsChecked = existing.NewTab;
         }
@@ -65,6 +66,11 @@ public partial class EditShortcutWindow : Window
             BrowseButton.Visibility = Visibility.Visible;
             NewTabCheck.Visibility = Visibility.Collapsed;
         }
+
+        // Arguments are meaningless for URLs and folders
+        var showArgs = type is not (ShortcutType.Url or ShortcutType.Folder);
+        ArgsLabel.Visibility = showArgs ? Visibility.Visible : Visibility.Collapsed;
+        ArgsBox.Visibility = showArgs ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private string? GetTargetDirectory()
@@ -162,6 +168,7 @@ public partial class EditShortcutWindow : Window
                 ? Path.GetFileNameWithoutExtension(PathBox.Text)
                 : NameBox.Text,
             Path = PathBox.Text,
+            Arguments = string.IsNullOrWhiteSpace(ArgsBox.Text) ? null : ArgsBox.Text.Trim(),
             Type = type,
             IconPath = iconPath,
             NewTab = type == ShortcutType.Terminal && (NewTabCheck.IsChecked == true)

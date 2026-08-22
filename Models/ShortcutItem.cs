@@ -10,6 +10,10 @@ public class ShortcutItem
     [JsonPropertyName("path")]
     public string Path { get; set; } = string.Empty;
 
+    [JsonPropertyName("args")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Arguments { get; set; }
+
     [JsonPropertyName("icon")]
     public string? IconPath { get; set; }
 

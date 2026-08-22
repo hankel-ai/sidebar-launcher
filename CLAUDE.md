@@ -35,7 +35,7 @@ bin\Release\net8.0-windows\win-x64\publish\SidebarLauncher.exe
 - **Services/AppBarService.cs** — SHAppBarMessage P/Invoke for pinned mode (reserves screen space)
 - **Services/ConfigService.cs** — JSON config at `%APPDATA%\SidebarLauncher\config.json`
 - **Services/IconExtractor.cs** — Extracts icons from exe/lnk/folders via shell APIs (IShellLink COM, ExtractIconEx, SHGetFileInfo with PIDL)
-- **Services/ShellLauncher.cs** — Launches shortcuts (Process.Start, special .ps1 handling, auto working directory)
+- **Services/ShellLauncher.cs** — Launches shortcuts (Process.Start, special .ps1 handling, auto working directory, per-shortcut `Arguments`)
 - **Services/StartupService.cs** — HKCU Run key for launch-on-startup
 - **Models/JsonContext.cs** — Source-generated JSON serializer (required for trimming)
 
@@ -48,7 +48,8 @@ User config lives at `%APPDATA%\SidebarLauncher\config.json`. Supports:
 - Pinned mode toggle
 - Lock icons toggle
 - Monitor selection
-- Shortcut types: Application, Folder, Url, Script, Separator
+- Shortcut types: Application, Folder, Url, Script, Terminal, Separator
+- Per-shortcut command-line arguments (`args`) — optional, omitted from JSON when null; passed to the target for Application/Script/Terminal types (hidden in the editor for Url/Folder). Example: path `msedge.exe`, args `--remote-debugging-port=9222 --user-data-dir=C:\EdgeDebugProfile`
 
 ## Icon Extraction (.lnk files)
 The `IconExtractor` resolves .lnk shortcut icons without the overlay arrow using a 3-step chain:
@@ -62,3 +63,5 @@ The `IconExtractor` resolves .lnk shortcut icons without the overlay arrow using
 - `buildandcopy.cmd` must kill the running instance BEFORE building (file lock on single-file EXE)
 - No system tray icon — all interaction via the sidebar itself
 - Double-click bar to toggle pin; right-click for context menu
+- `ShortcutItem.Group` is declared but referenced nowhere in code — dead field, always null
+- The path box is a *filename only*, never a command line — shell builtins like `start` will not work there; use the Arguments field instead

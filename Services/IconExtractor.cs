@@ -12,6 +12,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml.Linq;
+using Microsoft.Win32;
 using SidebarLauncher.Models;
 
 namespace SidebarLauncher.Services;
@@ -148,6 +149,61 @@ public class IconExtractor
     }
 
     /// <summary>
+    /// Resolves a bare executable name (e.g. "msedge.exe") to a full path the same way
+    /// ShellExecute does: PATH first, then the App Paths registry key. Returns the input
+    /// unchanged when it is already a real path or cannot be resolved.
+    /// </summary>
+    public static string ResolveExecutable(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path)) return path;
+            if (File.Exists(path)) return path;
+
+            // Only bare names are worth resolving; anything with a directory component
+            // is either valid already or genuinely missing.
+            if (Path.IsPathRooted(path) ||
+                path.Contains(Path.DirectorySeparatorChar) ||
+                path.Contains(Path.AltDirectorySeparatorChar))
+                return path;
+
+            var name = path;
+            if (string.IsNullOrEmpty(Path.GetExtension(name)))
+                name += ".exe";
+
+            var envPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            foreach (var dir in envPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+            {
+                try
+                {
+                    var candidate = Path.Combine(dir.Trim('"'), name);
+                    if (File.Exists(candidate)) return candidate;
+                }
+                catch { }
+            }
+
+            // App Paths is how Windows finds msedge.exe, which is not on PATH
+            foreach (var root in new[] { Registry.CurrentUser, Registry.LocalMachine })
+            {
+                try
+                {
+                    using var key = root.OpenSubKey(
+                        @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" + name);
+                    if (key?.GetValue(null) is string value && !string.IsNullOrWhiteSpace(value))
+                    {
+                        value = Environment.ExpandEnvironmentVariables(value.Trim('"'));
+                        if (File.Exists(value)) return value;
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        return path;
+    }
+
+    /// <summary>
     /// Gets the icon for a file. For .lnk files, reads the shortcut's icon location
     /// metadata to get the correct icon without the overlay arrow.
     /// </summary>
@@ -155,6 +211,10 @@ public class IconExtractor
     {
         try
         {
+            // A bare name like "msedge.exe" is not a real path — resolve it the way
+            // ShellExecute will at launch time, so the icon matches the program that runs.
+            filePath = ResolveExecutable(filePath);
+
             if (!File.Exists(filePath))
             {
                 var ext = Path.GetExtension(filePath);

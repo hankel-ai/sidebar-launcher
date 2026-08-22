@@ -9,6 +9,7 @@ A lightweight, auto-hiding launcher bar for Windows 11. Pin your favorite apps, 
 - **Configurable edge**: Left or right side of any monitor
 - **Dark theme**: Semi-transparent dark aesthetic with smooth slide animations
 - **Shortcut types**: Applications (.exe, .lnk), folders, URLs, scripts (.ps1, .bat, .cmd)
+- **Command-line arguments**: Optional per-shortcut args, e.g. path `msedge.exe` with args `--remote-debugging-port=9222 --user-data-dir=C:\EdgeDebugProfile`
 - **Import shortcuts**: Import from Taskbar and Start Menu with clean icons (no overlay arrows)
 - **Auto icon extraction**: Icons pulled from executables, shortcuts, and shell associations
 - **Drag and drop**: Reorder shortcuts by dragging, or drop files/folders onto the bar to add them
