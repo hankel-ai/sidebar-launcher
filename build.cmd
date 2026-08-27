@@ -4,6 +4,7 @@ setlocal EnableDelayedExpansion
 set SCRIPTDIR=%~dp0
 set DOTNET_CHANNEL=8.0
 set DOTNET_INSTALL_DIR=%LOCALAPPDATA%\dotnet
+set "INSTALL_SCRIPT=%TEMP%\dotnet-install.ps1"
 
 REM --- Locate dotnet.exe -------------------------------------------------
 set "DOTNET="
@@ -31,20 +32,19 @@ if not defined DOTNET (
 
 REM --- Install .NET 8 SDK (user-local, no admin) -------------------------
 if "%NEED_INSTALL%"=="1" (
-    echo .NET 8 SDK not found. Installing to %DOTNET_INSTALL_DIR% ...
-    set "INSTALL_SCRIPT=%TEMP%\dotnet-install.ps1"
+    echo .NET 8 SDK not found. Installing to !DOTNET_INSTALL_DIR! ...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile '%INSTALL_SCRIPT%'"
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile '!INSTALL_SCRIPT!'"
     if errorlevel 1 (
         echo ERROR: Failed to download dotnet-install.ps1
         exit /b 1
     )
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALL_SCRIPT%" -Channel %DOTNET_CHANNEL% -InstallDir "%DOTNET_INSTALL_DIR%"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "!INSTALL_SCRIPT!" -Channel %DOTNET_CHANNEL% -InstallDir "!DOTNET_INSTALL_DIR!"
     if errorlevel 1 (
         echo ERROR: dotnet-install.ps1 failed
         exit /b 1
     )
-    set "DOTNET=%DOTNET_INSTALL_DIR%\dotnet.exe"
+    set "DOTNET=!DOTNET_INSTALL_DIR!\dotnet.exe"
 )
 
 if not exist "%DOTNET%" (
