@@ -46,7 +46,10 @@ SidebarLauncher.exe**, wherever that exe sits — `config.json`, `crash.log`,
 `shortcuts\` (copies of imported .lnk files) and `icons\` (extracted PNGs).
 Nothing is written to the user profile.
 
-`AppPaths.DataFolder` is simply `AppContext.BaseDirectory` + `SidebarLauncherData`. So a
+`AppPaths.DataFolder` is `Path.GetDirectoryName(Environment.ProcessPath)` + `SidebarLauncherData`.
+**Not `AppContext.BaseDirectory`** — this is a single-file self-extracting build, where that can
+resolve to the temp extraction folder instead of the exe's own folder. Right-click the bar →
+**Open Data Folder** to see which folder a given exe actually resolved to. So a
 debug run (`bin\Debug\...`), the publish output and the deployed copy in `OneDrive\Programs`
 each keep their own settings — copy the folder along with the exe when moving it.
 `.gitignore` covers `SidebarLauncherData/` (a debug run's copy is under `bin/` anyway).

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -998,6 +999,16 @@ public partial class SidebarWindow : Window
         menu.Items.Add(startupItem);
 
         menu.Items.Add(new Separator());
+
+        // Portable app: shows exactly which folder this exe is reading settings from.
+        var dataFolderItem = new MenuItem { Header = "Open Data Folder" };
+        dataFolderItem.Click += (_, _) =>
+        {
+            AppPaths.EnsureCreated();
+            Process.Start(new ProcessStartInfo(AppPaths.DataFolder) { UseShellExecute = true });
+            ResetInteractionState();
+        };
+        menu.Items.Add(dataFolderItem);
 
         var exitItem = new MenuItem { Header = "Exit" };
         exitItem.Click += (_, _) =>

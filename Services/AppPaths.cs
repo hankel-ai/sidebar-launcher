@@ -13,8 +13,17 @@ public static class AppPaths
 {
     private const string DataFolderName = "SidebarLauncherData";
 
-    public static string DataFolder { get; } =
-        Path.Combine(AppContext.BaseDirectory, DataFolderName);
+    /// <summary>
+    /// Folder holding SidebarLauncher.exe. Environment.ProcessPath, not
+    /// AppContext.BaseDirectory: this is a single-file self-extracting build, and
+    /// BaseDirectory can point at the temp extraction folder instead of the exe.
+    /// </summary>
+    public static string ExeFolder { get; } =
+        Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty) is { Length: > 0 } dir
+            ? dir
+            : AppContext.BaseDirectory;
+
+    public static string DataFolder { get; } = Path.Combine(ExeFolder, DataFolderName);
 
     public static string ConfigPath => Path.Combine(DataFolder, "config.json");
     public static string ShortcutsFolder => Path.Combine(DataFolder, "shortcuts");
@@ -72,7 +81,11 @@ public static class AppPaths
         Directory.CreateDirectory(destination);
 
         foreach (var file in Directory.GetFiles(source))
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
+        {
+            var target = Path.Combine(destination, Path.GetFileName(file));
+            if (File.Exists(target)) continue;  // never clobber what the user put here
+            File.Copy(file, target);
+        }
 
         foreach (var dir in Directory.GetDirectories(source))
             CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));

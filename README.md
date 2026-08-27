@@ -57,7 +57,8 @@ SidebarLauncherData\
 
 Nothing is written to your user profile. Move the exe and take `SidebarLauncherData\` with it to
 keep your layout; leave it behind to start fresh. `config.json` is editable both through the
-app's UI and by hand.
+app's UI and by hand. Right-click the bar → **Open Data Folder** to see which folder the running
+copy is using.
 
 Settings previously kept in `%APPDATA%\SidebarLauncher` are migrated automatically on first run
 (the old folder is left in place).
