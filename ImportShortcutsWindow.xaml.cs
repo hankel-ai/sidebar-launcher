@@ -13,18 +13,15 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml.Linq;
 using SidebarLauncher.Models;
+using SidebarLauncher.Services;
 
 namespace SidebarLauncher;
 
 public partial class ImportShortcutsWindow : Window
 {
-    private static readonly string ShortcutsFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SidebarLauncher", "shortcuts");
+    private static string ShortcutsFolder => AppPaths.ShortcutsFolder;
 
-    private static readonly string IconsFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SidebarLauncher", "icons");
+    private static string IconsFolder => AppPaths.IconsFolder;
 
     public List<ShortcutItem> SelectedShortcuts { get; } = new();
 

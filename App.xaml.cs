@@ -8,9 +8,7 @@ namespace SidebarLauncher;
 
 public partial class App : Application
 {
-    private static readonly string CrashLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SidebarLauncher", "crash.log");
+    private static string CrashLogPath => AppPaths.CrashLogPath;
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {

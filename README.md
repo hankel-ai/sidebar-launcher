@@ -43,4 +43,21 @@ dotnet publish -c Release
 
 ## Configuration
 
-Settings are stored at `%APPDATA%\SidebarLauncher\config.json` and are editable both through the app's UI and manually.
+Sidebar Launcher is portable. Settings live in a `SidebarLauncherData\` folder **next to
+`SidebarLauncher.exe`**, wherever you put the exe:
+
+```
+SidebarLauncher.exe
+SidebarLauncherData\
+  config.json     settings + shortcuts
+  crash.log
+  icons\          extracted icons
+  shortcuts\      copies of imported .lnk files
+```
+
+Nothing is written to your user profile. Move the exe and take `SidebarLauncherData\` with it to
+keep your layout; leave it behind to start fresh. `config.json` is editable both through the
+app's UI and by hand.
+
+Settings previously kept in `%APPDATA%\SidebarLauncher` are migrated automatically on first run
+(the old folder is left in place).

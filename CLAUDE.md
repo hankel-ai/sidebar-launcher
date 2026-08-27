@@ -33,14 +33,28 @@ bin\Release\net8.0-windows\win-x64\publish\SidebarLauncher.exe
 - **EditShortcutWindow.xaml** — Dialog for adding/editing shortcuts (custom dark ComboBox template, icon picker)
 - **ImportShortcutsWindow.xaml** — Checklist dialog for importing shortcuts from Taskbar/Start Menu
 - **Services/AppBarService.cs** — SHAppBarMessage P/Invoke for pinned mode (reserves screen space)
-- **Services/ConfigService.cs** — JSON config at `%APPDATA%\SidebarLauncher\config.json`
+- **Services/AppPaths.cs** — Resolves the data folder next to the exe (see Config below); one-time migration from the old `%APPDATA%\SidebarLauncher`
+- **Services/ConfigService.cs** — JSON config at `<exe folder>\SidebarLauncherData\config.json`
 - **Services/IconExtractor.cs** — Extracts icons from exe/lnk/folders via shell APIs (IShellLink COM, ExtractIconEx, SHGetFileInfo with PIDL)
 - **Services/ShellLauncher.cs** — Launches shortcuts (Process.Start, special .ps1 handling, auto working directory, per-shortcut `Arguments`)
 - **Services/StartupService.cs** — HKCU Run key for launch-on-startup
 - **Models/JsonContext.cs** — Source-generated JSON serializer (required for trimming)
 
 ## Config
-User config lives at `%APPDATA%\SidebarLauncher\config.json`. Supports:
+The app is portable: all runtime state lives in `SidebarLauncherData\` **next to
+SidebarLauncher.exe**, wherever that exe sits — `config.json`, `crash.log`,
+`shortcuts\` (copies of imported .lnk files) and `icons\` (extracted PNGs).
+Nothing is written to the user profile.
+
+`AppPaths.DataFolder` is simply `AppContext.BaseDirectory` + `SidebarLauncherData`. So a
+debug run (`bin\Debug\...`), the publish output and the deployed copy in `OneDrive\Programs`
+each keep their own settings — copy the folder along with the exe when moving it.
+`.gitignore` covers `SidebarLauncherData/` (a debug run's copy is under `bin/` anyway).
+
+On first run an existing `%APPDATA%\SidebarLauncher` is copied in and absolute paths inside
+`config.json` are rewritten by `AppPaths.Repoint`; the old folder is left in place.
+
+`config.json` supports:
 - Edge: Left or Right
 - Icon size, bar width, opacity
 - Auto-hide delay, slide animation speed

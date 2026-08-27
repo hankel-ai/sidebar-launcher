@@ -3,3 +3,6 @@ obj/
 *.user
 *.suo
 .vs/
+
+# Runtime settings: config.json, imported shortcuts, icons, crash.log
+SidebarLauncherData/

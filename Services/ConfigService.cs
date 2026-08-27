@@ -7,33 +7,63 @@ namespace SidebarLauncher.Services;
 
 public class ConfigService
 {
-    private static readonly string AppDataFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SidebarLauncher");
-
-    private static readonly string ConfigPath = Path.Combine(AppDataFolder, "config.json");
-
     public LauncherConfig Load()
     {
-        if (!File.Exists(ConfigPath))
+        AppPaths.MigrateLegacyData();
+
+        if (!File.Exists(AppPaths.ConfigPath))
             return CreateDefault();
 
+        LauncherConfig config;
         try
         {
-            var json = File.ReadAllText(ConfigPath);
-            return JsonSerializer.Deserialize(json, AppJsonContext.Default.LauncherConfig) ?? CreateDefault();
+            var json = File.ReadAllText(AppPaths.ConfigPath);
+            config = JsonSerializer.Deserialize(json, AppJsonContext.Default.LauncherConfig) ?? CreateDefault();
         }
         catch
         {
             return CreateDefault();
         }
+
+        if (RepointLegacyPaths(config))
+            Save(config);
+
+        return config;
     }
 
     public void Save(LauncherConfig config)
     {
-        Directory.CreateDirectory(AppDataFolder);
+        AppPaths.EnsureCreated();
         var json = JsonSerializer.Serialize(config, AppJsonContext.Default.LauncherConfig);
-        File.WriteAllText(ConfigPath, json);
+        File.WriteAllText(AppPaths.ConfigPath, json);
+    }
+
+    /// <summary>
+    /// Points shortcuts and icons copied out of %APPDATA%\SidebarLauncher at their
+    /// new home. Idempotent - unrelated paths are left untouched.
+    /// </summary>
+    private static bool RepointLegacyPaths(LauncherConfig config)
+    {
+        var changed = false;
+
+        foreach (var shortcut in config.Shortcuts)
+        {
+            var path = AppPaths.Repoint(shortcut.Path);
+            if (!string.Equals(path, shortcut.Path, StringComparison.Ordinal))
+            {
+                shortcut.Path = path ?? string.Empty;
+                changed = true;
+            }
+
+            var icon = AppPaths.Repoint(shortcut.IconPath);
+            if (!string.Equals(icon, shortcut.IconPath, StringComparison.Ordinal))
+            {
+                shortcut.IconPath = icon;
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     private LauncherConfig CreateDefault()
