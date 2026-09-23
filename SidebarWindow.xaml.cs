@@ -133,6 +133,13 @@ public partial class SidebarWindow : Window
 
     #endregion
 
+    private int MirrorColIfRight(int col)
+    {
+        return _config.Settings.Edge == ScreenEdge.Right
+            ? _effectiveColumns - 1 - col
+            : col;
+    }
+
     #region Grid Rendering
 
     public void RebuildGrid()
@@ -171,7 +178,7 @@ public partial class SidebarWindow : Window
 
             var sv = CreateSlotView(shortcut);
             _slotViews[shortcut.Slot] = sv;
-            Canvas.SetLeft(sv.Element, col * bw);
+            Canvas.SetLeft(sv.Element, MirrorColIfRight(col) * bw);
             Canvas.SetTop(sv.Element, row * bw);
             SlotCanvas.Children.Add(sv.Element);
         }
@@ -478,7 +485,7 @@ public partial class SidebarWindow : Window
         var pos = e.GetPosition(SlotCanvas);
         int bw = _config.Settings.BarWidth;
         int row = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
-        int col = Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1);
+        int col = MirrorColIfRight(Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1));
         int slot = col * _rows + row;
         return Math.Clamp(slot, 0, _totalSlots - 1);
     }
@@ -516,7 +523,7 @@ public partial class SidebarWindow : Window
                 int bw = _config.Settings.BarWidth;
                 int highlightCol = slot / _rows;
                 int highlightRow = slot % _rows;
-                Canvas.SetLeft(_highlightRect, highlightCol * bw);
+                Canvas.SetLeft(_highlightRect, MirrorColIfRight(highlightCol) * bw);
                 Canvas.SetTop(_highlightRect, highlightRow * bw);
                 _highlightRect.Visibility = Visibility.Visible;
             }
@@ -720,7 +727,7 @@ public partial class SidebarWindow : Window
         var pos = e.GetPosition(SlotCanvas);
         int bw = _config.Settings.BarWidth;
         int clickRow = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
-        int clickCol = Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1);
+        int clickCol = MirrorColIfRight(Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1));
         int slot = clickCol * _rows + clickRow;
         var clickedItem = _config.Shortcuts.FirstOrDefault(
             s => s.Slot == slot && s.Type != ShortcutType.Separator);
