@@ -69,6 +69,9 @@ public partial class SidebarWindow : Window
         RebuildGrid();
     }
 
+    /// <summary>Start loading icons in the background so the first show is instant.</summary>
+    public void WarmUpIcons() => _iconExtractor.WarmUp(_config.Shortcuts, Dispatcher);
+
     #region Positioning
 
     public void Reposition()

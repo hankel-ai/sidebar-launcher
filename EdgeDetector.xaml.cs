@@ -57,6 +57,11 @@ public partial class EdgeDetector : Window
         // Reposition + reassert Topmost on RDP session unlock/reconnect
         SystemEvents.SessionSwitch += OnSessionSwitch;
 
+        // Create the sidebar now (hidden) and load its icons off the UI thread, so the
+        // first hover after login does not show an empty bar while icons extract.
+        CreateSidebar();
+        _sidebar!.WarmUpIcons();
+
         if (_config.Settings.Pinned)
             ShowSidebar();
     }
@@ -121,13 +126,19 @@ public partial class EdgeDetector : Window
 
     public void ShowSidebar()
     {
-        if (_sidebar == null || !_sidebar.IsLoaded)
-        {
-            _sidebar = new SidebarWindow(_config, _configService, this);
-            _sidebar.Closed += (_, _) => _sidebar = null;
-        }
+        // Not IsLoaded: the pre-created sidebar is not loaded until its first Show,
+        // and replacing it would throw away the warmed icon cache.
+        if (_sidebar == null)
+            CreateSidebar();
 
-        _sidebar.SlideIn();
+        _sidebar!.SlideIn();
+    }
+
+    private void CreateSidebar()
+    {
+        var sidebar = new SidebarWindow(_config, _configService, this);
+        sidebar.Closed += (_, _) => { if (_sidebar == sidebar) _sidebar = null; };
+        _sidebar = sidebar;
     }
 
     public void RefreshConfig()

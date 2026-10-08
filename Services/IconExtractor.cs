@@ -105,6 +105,49 @@ public class IconExtractor
         if (_cache.TryGetValue(keyPath, out var cached))
             return cached;
 
+        var result = Extract(item);
+        _cache[keyPath] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// Extracts every icon on a background STA thread and hands the results back on
+    /// <paramref name="dispatcher"/>. Right after login the cold disk, shell and OneDrive
+    /// make extraction take seconds; doing it here keeps the first hover from blocking.
+    /// </summary>
+    public void WarmUp(IEnumerable<ShortcutItem> items, System.Windows.Threading.Dispatcher dispatcher)
+    {
+        var snapshot = items.ToList();
+        var thread = new System.Threading.Thread(() =>
+        {
+            var results = new Dictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in snapshot)
+            {
+                if (item.Type == ShortcutType.Separator) continue;
+                var keyPath = item.IconPath ?? item.Path;
+                if (results.ContainsKey(keyPath)) continue;
+                // Frozen, so safe to hand to the UI thread
+                var icon = Extract(item);
+                if (icon != null) results[keyPath] = icon;
+            }
+            dispatcher.BeginInvoke(() =>
+            {
+                // Failures are not primed: the first real show retries them, by which
+                // point whatever was not ready at login (e.g. OneDrive) may be.
+                foreach (var (key, icon) in results)
+                    _cache.TryAdd(key, icon);
+            });
+        })
+        {
+            IsBackground = true,
+            Name = "IconWarmUp"
+        };
+        thread.SetApartmentState(System.Threading.ApartmentState.STA);
+        thread.Start();
+    }
+
+    private static ImageSource? Extract(ShortcutItem item)
+    {
         ImageSource? result = null;
 
         try
@@ -144,7 +187,6 @@ public class IconExtractor
         }
         catch { }
 
-        _cache[keyPath] = result;
         return result;
     }
 

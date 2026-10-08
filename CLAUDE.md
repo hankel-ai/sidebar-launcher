@@ -81,4 +81,6 @@ The `IconExtractor` resolves .lnk shortcut icons without the overlay arrow using
 - No system tray icon — all interaction via the sidebar itself
 - Double-click bar to toggle pin; right-click for context menu
 - `ShortcutItem.Group` is declared but referenced nowhere in code — dead field, always null
+- Icon warm-up: `EdgeDetector.OnLoaded` pre-creates the (hidden) `SidebarWindow` and calls `WarmUpIcons()`, which extracts all icons on a background STA thread and primes the cache. Without it, the first hover after login showed an empty bar for seconds (cold disk/shell/OneDrive, extraction ran synchronously in `Loaded`). `ShowSidebar` checks `_sidebar == null`, **not** `!IsLoaded` — the pre-created window is not loaded until first Show, and replacing it discards the warm cache. Failed (null) icons are not primed, so the first show retries them.
+- `buildandcopy.cmd` run from a tool never returns (the dotnet build server keeps the pipe open) — check the exe timestamp/process instead of waiting
 - The path box is a *filename only*, never a command line — shell builtins like `start` will not work there; use the Arguments field instead
