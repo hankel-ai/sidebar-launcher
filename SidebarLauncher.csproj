@@ -12,4 +12,9 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- No pen/touch needed. Stops WPF loading PenImc_cor3.dll from the single-file
+         temp extraction folder, which temp cleaners can delete mid-run. -->
+    <RuntimeHostConfigurationOption Include="Switch.System.Windows.Input.Stylus.DisableStylusAndTouchSupport" Value="true" />
+  </ItemGroup>
 </Project>

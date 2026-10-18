@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -9,6 +10,7 @@ namespace SidebarLauncher;
 public partial class App : Application
 {
     private static string CrashLogPath => AppPaths.CrashLogPath;
+    private readonly HashSet<string> _shownErrors = new();
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
@@ -26,11 +28,17 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             WriteCrashLog(args.Exception);
+            args.Handled = true;
+
+            // One popup per distinct error. MessageBox pumps messages, so a repeating
+            // exception (e.g. per WM_DEVICECHANGE) would otherwise stack dialogs re-entrantly.
+            var key = $"{args.Exception.GetType().FullName}: {args.Exception.Message}";
+            if (!_shownErrors.Add(key)) return;
+
             MessageBox.Show(
                 $"An error occurred:\n\n{args.Exception.Message}\n\nDetails written to:\n{CrashLogPath}",
                 "Sidebar Launcher - Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
-            args.Handled = true;
         };
 
         var configService = new ConfigService();
