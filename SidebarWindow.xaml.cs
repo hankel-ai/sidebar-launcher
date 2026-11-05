@@ -28,10 +28,17 @@ public partial class SidebarWindow : Window
     private bool _isAnimating;
     private bool _contextMenuOpen;
 
+    // Cell size limits. BarWidth and IconSize are the reference sizes; both scale with the cell.
+    private const int MinCellSize = 16;
+    private const double MaxCellScale = 1.5;
+    private const int MinLabelCellSize = 36;
+    private const double ReferenceLabelFontSize = 8;
+
     // Grid state
     private int _totalSlots;
     private int _rows;
     private int _effectiveColumns;
+    private int _cellSize;
     private readonly Dictionary<int, SlotView> _slotViews = new();
     private Rectangle? _highlightRect;
 
@@ -80,11 +87,16 @@ public partial class SidebarWindow : Window
         var workArea = screen.WorkingArea;
         var dpiScale = VisualTreeHelper.GetDpi(this);
 
-        int cellSize = _config.Settings.BarWidth;
         double maxHeight = workArea.Height / dpiScale.DpiScaleY;
         Height = maxHeight;
 
-        _rows = Math.Max(1, (int)(maxHeight / cellSize));
+        // The row count is fixed so icons keep their position; the cell size absorbs
+        // the difference in screen height.
+        _rows = Math.Max(1, _config.Settings.LayoutRows);
+        double usableHeight = maxHeight - OuterBorder.BorderThickness.Top - OuterBorder.BorderThickness.Bottom;
+        int maxCellSize = Math.Max(MinCellSize, (int)(_config.Settings.BarWidth * MaxCellScale));
+        _cellSize = Math.Clamp((int)(usableHeight / _rows), MinCellSize, maxCellSize);
+
         int configuredColumns = Math.Max(1, _config.Settings.Columns);
         int maxSlot = _config.Shortcuts
             .Where(s => s.Slot >= 0 && s.Type != ShortcutType.Separator)
@@ -96,7 +108,7 @@ public partial class SidebarWindow : Window
             _effectiveColumns = (maxSlot / _rows) + 1;
         _totalSlots = _rows * _effectiveColumns;
 
-        double totalBarWidth = cellSize * _effectiveColumns;
+        double totalBarWidth = BarWidthDip;
         Width = totalBarWidth;
 
         Top = workArea.Top / dpiScale.DpiScaleY;
@@ -117,6 +129,9 @@ public partial class SidebarWindow : Window
         if (!_isVisible)
             SlideTransform.X = _config.Settings.Edge == ScreenEdge.Left ? -totalBarWidth : totalBarWidth;
     }
+
+    /// <summary>Current bar width in DIPs: scaled cell size times the columns in use.</summary>
+    private double BarWidthDip => _cellSize * _effectiveColumns;
 
     public void Relayout()
     {
@@ -150,7 +165,7 @@ public partial class SidebarWindow : Window
         SlotCanvas.Children.Clear();
         _slotViews.Clear();
 
-        int bw = _config.Settings.BarWidth;
+        int bw = _cellSize;
         SlotCanvas.Width = bw * _effectiveColumns;
         SlotCanvas.Height = _rows * bw;
 
@@ -220,8 +235,10 @@ public partial class SidebarWindow : Window
 
     private SlotView CreateSlotView(ShortcutItem item)
     {
-        int bw = _config.Settings.BarWidth;
-        int iconSize = _config.Settings.IconSize;
+        int bw = _cellSize;
+        double scale = (double)_cellSize / _config.Settings.BarWidth;
+        // Truncate, not round: icon sources are 32 px, so a 1 px overshoot only adds blur.
+        int iconSize = (int)(_config.Settings.IconSize * scale);
 
         var border = new Border
         {
@@ -271,13 +288,15 @@ public partial class SidebarWindow : Window
         var label = new TextBlock
         {
             Text = item.Name,
-            FontSize = 8,
+            FontSize = ReferenceLabelFontSize * scale,
             Foreground = Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 2),
             TextTrimming = TextTrimming.CharacterEllipsis,
-            MaxWidth = bw
+            MaxWidth = bw,
+            // Too small to read below this size; the tooltip still shows the name.
+            Visibility = _cellSize < MinLabelCellSize ? Visibility.Collapsed : Visibility.Visible
         };
         label.Effect = new DropShadowEffect { BlurRadius = 3, ShadowDepth = 1, Opacity = 0.9, Color = Colors.Black };
         grid.Children.Add(label);
@@ -378,7 +397,7 @@ public partial class SidebarWindow : Window
     public void RegisterAppBar()
     {
         if (_appBar != null) return;
-        _appBar = new AppBarService(this, _config.Settings);
+        _appBar = new AppBarService(this, _config.Settings, () => BarWidthDip);
         _appBar.Register();
     }
 
@@ -423,7 +442,7 @@ public partial class SidebarWindow : Window
         if (!_isVisible || _isAnimating || _config.Settings.Pinned || _contextMenuOpen || _isDragging) return;
 
         _isAnimating = true;
-        double totalBarWidth = _config.Settings.BarWidth * _effectiveColumns;
+        double totalBarWidth = BarWidthDip;
         double target = _config.Settings.Edge == ScreenEdge.Left
             ? -totalBarWidth : totalBarWidth;
 
@@ -486,7 +505,7 @@ public partial class SidebarWindow : Window
     private int GetSlotFromPoint(DragEventArgs e)
     {
         var pos = e.GetPosition(SlotCanvas);
-        int bw = _config.Settings.BarWidth;
+        int bw = _cellSize;
         int row = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
         int col = MirrorColIfRight(Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1));
         int slot = col * _rows + row;
@@ -523,7 +542,7 @@ public partial class SidebarWindow : Window
             int slot = GetSlotFromPoint(e);
             if (_highlightRect != null)
             {
-                int bw = _config.Settings.BarWidth;
+                int bw = _cellSize;
                 int highlightCol = slot / _rows;
                 int highlightRow = slot % _rows;
                 Canvas.SetLeft(_highlightRect, MirrorColIfRight(highlightCol) * bw);
@@ -728,7 +747,7 @@ public partial class SidebarWindow : Window
 
         // Check if we clicked on a shortcut
         var pos = e.GetPosition(SlotCanvas);
-        int bw = _config.Settings.BarWidth;
+        int bw = _cellSize;
         int clickRow = Math.Clamp((int)(pos.Y / bw), 0, _rows - 1);
         int clickCol = MirrorColIfRight(Math.Clamp((int)(pos.X / bw), 0, _effectiveColumns - 1));
         int slot = clickCol * _rows + clickRow;

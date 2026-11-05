@@ -15,6 +15,7 @@ A lightweight, auto-hiding launcher bar for Windows 11. Pin your favorite apps, 
 - **Drag and drop**: Reorder shortcuts by dragging, or drop files/folders onto the bar to add them
 - **Right-click management**: Add, edit, remove, and reorder shortcuts from the bar
 - **Lock icons**: Prevent accidental reordering
+- **Resolution-independent layout**: Icons resize with screen height and keep the same row and column on every resolution (`layoutRows` in `config.json`, default 21)
 - **Launch on startup**: Optional auto-start with Windows
 - **Lightweight**: Single-file EXE, no runtime needed
 

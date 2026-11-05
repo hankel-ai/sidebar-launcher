@@ -14,6 +14,7 @@ public class AppBarService : IDisposable
     private HwndSource? _hwndSource;
     private readonly Window _window;
     private readonly LauncherSettings _settings;
+    private readonly Func<double> _getBarWidthDip;
 
     private const int ABM_NEW = 0x00;
     private const int ABM_REMOVE = 0x01;
@@ -56,10 +57,11 @@ public class AppBarService : IDisposable
         public int Left, Top, Right, Bottom;
     }
 
-    public AppBarService(Window window, LauncherSettings settings)
+    public AppBarService(Window window, LauncherSettings settings, Func<double> getBarWidthDip)
     {
         _window = window;
         _settings = settings;
+        _getBarWidthDip = getBarWidthDip;
     }
 
     public void Register()
@@ -98,7 +100,7 @@ public class AppBarService : IDisposable
         var screen = System.Windows.Forms.Screen.PrimaryScreen!;
         var workArea = screen.Bounds; // Use full bounds, not WorkingArea
         var dpi = VisualTreeHelper.GetDpi(_window);
-        int barWidthPx = (int)(_settings.BarWidth * Math.Max(1, _settings.Columns) * dpi.DpiScaleX);
+        int barWidthPx = (int)(_getBarWidthDip() * dpi.DpiScaleX);
 
         var abd = NewAppBarData();
         abd.uEdge = _settings.Edge == ScreenEdge.Left ? ABE_LEFT : ABE_RIGHT;

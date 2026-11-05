@@ -14,7 +14,7 @@ A lightweight Windows 11 launcher bar that auto-hides at the screen edge. Hover 
 
 ```bash
 # Build and deploy (kills running instance, builds, copies, launches)
-# Run via: cmd.exe //c "C:\Users\admin\OneDrive\ClaudeCode\SidebarLauncher\buildandcopy.cmd"
+# Run via: cmd.exe //c "C:\Users\admin\OneDrive\ClaudeCode\sidebar-launcher\buildandcopy.cmd"
 buildandcopy.cmd
 
 # Build (debug)
@@ -59,7 +59,8 @@ On first run an existing `%APPDATA%\SidebarLauncher` is copied in and absolute p
 
 `config.json` supports:
 - Edge: Left or Right
-- Icon size, bar width, opacity
+- Icon size, bar width (reference sizes at a 48 DIP cell; see Layout below), opacity
+- `layoutRows` (default 21) — fixed rows per column; changing it reflows every icon
 - Auto-hide delay, slide animation speed
 - Hover-show delay (`hoverShowDelayMs`, default 1000ms) — debounce before sidebar slides in on edge hover, configurable via "Hover Delay" submenu in right-click context menu
 - Pinned mode toggle
@@ -67,6 +68,14 @@ On first run an existing `%APPDATA%\SidebarLauncher` is copied in and absolute p
 - Monitor selection
 - Shortcut types: Application, Folder, Url, Script, Terminal, Separator
 - Per-shortcut command-line arguments (`args`) — optional, omitted from JSON when null; passed to the target for Application/Script/Terminal types (hidden in the editor for Url/Folder). Example: path `msedge.exe`, args `--remote-debugging-port=9222 --user-data-dir=C:\EdgeDebugProfile`
+
+## Layout
+- Slots are a linear index: `col = slot / rows`, `row = slot % rows`. Row count must stay fixed or icons move, so it comes from `layoutRows`, never from screen height.
+- Cell size = usable work area height / `layoutRows`, clamped to 16..`barWidth * 1.5` (72). Above the cap, the grid stays top-aligned with empty space below.
+- Icon, label font and bar width scale from cell size. Label hides below a 36 DIP cell; the tooltip still shows the name.
+- 21 rows = layout authored on the 1920x1080 RDP session (1032 px work height, 49 DIP cell, 32 px icon).
+- Icons are extracted at 32 px (`SHGFI_LARGEICON`), so they soften above a 48 DIP cell.
+- Use `_cellSize` for grid geometry, not `Settings.BarWidth`. `AppBarService` gets its width from the sidebar through a callback.
 
 ## Icon Extraction (.lnk files)
 The `IconExtractor` resolves .lnk shortcut icons without the overlay arrow using a 3-step chain:
